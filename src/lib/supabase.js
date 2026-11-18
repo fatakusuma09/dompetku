@@ -1,20 +1,29 @@
 import { createClient } from '@supabase/supabase-js'
 
+const rawUrl =
+  import.meta.env.VITE_SUPABASE_URL ||
+  import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
+  import.meta.env.SUPABASE_URL ||
+  ''
+
+const rawKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  import.meta.env.SUPABASE_ANON_KEY ||
+  ''
+
 const supabaseUrl =
-  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL.startsWith('http')
-    ? import.meta.env.VITE_SUPABASE_URL
-    : 'https://placeholder.supabase.co'
+  rawUrl && rawUrl.startsWith('http') ? rawUrl : 'https://placeholder.supabase.co'
 
 const supabaseAnonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY && import.meta.env.VITE_SUPABASE_ANON_KEY.length > 10
-    ? import.meta.env.VITE_SUPABASE_ANON_KEY
-    : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder'
+  rawKey && rawKey.length > 10 ? rawKey : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder'
 
 export const isSupabaseConfigured = Boolean(
-  import.meta.env.VITE_SUPABASE_URL &&
-  import.meta.env.VITE_SUPABASE_ANON_KEY &&
-  !import.meta.env.VITE_SUPABASE_URL.includes('your-project') &&
-  !import.meta.env.VITE_SUPABASE_URL.includes('placeholder')
+  rawUrl &&
+  rawKey &&
+  rawUrl.startsWith('http') &&
+  !rawUrl.includes('your-project') &&
+  !rawUrl.includes('placeholder')
 )
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
