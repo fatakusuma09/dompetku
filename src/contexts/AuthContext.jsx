@@ -26,15 +26,26 @@ export function AuthProvider({ children }) {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
 
       if (error) throw error
-      setProfile(data)
-    } catch {
+
+      if (data) {
+        setProfile(data)
+      } else {
+        // Jika profil belum ada, inisialisasi default
+        setProfile({
+          id: userId,
+          nama_lengkap: user?.user_metadata?.full_name || 'Pengguna',
+          budget_bulanan: 0,
+        })
+      }
+    } catch (err) {
+      console.warn('fetchProfile error:', err)
       setProfile({
         id: userId,
         nama_lengkap: 'Pengguna',
-        budget_bulanan: 1500000,
+        budget_bulanan: 0,
       })
     }
   }
@@ -185,8 +196,11 @@ export function AuthProvider({ children }) {
     if (!user) return
     const { error } = await supabase
       .from('profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', user.id)
+      .upsert({
+        id: user.id,
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
     if (error) throw error
     await fetchProfile(user.id)
   }
