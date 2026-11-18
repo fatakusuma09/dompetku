@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="42" fill="#059669"/>
+  <!-- Wallet Body -->
+  <path d="M44 68C44 59.1634 51.1634 52 60 52H136C142.627 52 148 57.3726 148 64V72H52C47.5817 72 44 75.5817 44 80V68Z" fill="#10B981" opacity="0.8"/>
+  <rect x="44" y="72" width="104" height="68" rx="14" fill="#FFFFFF"/>
+  <!-- Wallet Flap -->
+  <path d="M112 88H148V124H112C102.059 124 94 115.941 94 106C94 96.0589 102.059 88 112 88Z" fill="#047857"/>
+  <!-- Gold Coin/Button -->
+  <circle cx="120" cy="106" r="6" fill="#FCD34D"/>
+</svg>
