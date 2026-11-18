@@ -12,7 +12,7 @@ import {
   CardContent,
   CardFooter,
 } from '@/components/ui/card'
-import { Wallet, Mail, Lock, User, Loader2, Sparkles } from 'lucide-react'
+import { Wallet, Mail, Lock, User, Loader2, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
   const { user, signIn, signUp, signInWithGoogle, loginAsGuest } = useAuth()
@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -33,20 +34,33 @@ export default function LoginPage() {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
     setError('')
+    setSuccess('')
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSuccess('')
+
     try {
       if (isRegister) {
-        await signUp(form.email, form.password, form.namaLengkap)
+        const result = await signUp(form.email, form.password, form.namaLengkap)
+        
+        // If email confirmation is disabled or session exists, auto redirect will happen via useEffect
+        // If session is null (confirmation required by Supabase), give clear feedback
+        if (result?.user && !result?.session) {
+          setSuccess('Pendaftaran berhasil! Silakan cek kotak masuk/spam email kamu untuk konfirmasi, lalu coba Masuk.')
+          setIsRegister(false)
+        } else {
+          setSuccess('Akun berhasil dibuat! Mengalihkan...')
+        }
       } else {
         await signIn(form.email, form.password)
       }
     } catch (err) {
-      setError(err.message || 'Terjadi kesalahan')
+      console.error('Auth error:', err)
+      setError(err.message || 'Terjadi kendala saat menghubungkan ke database.')
     } finally {
       setLoading(false)
     }
@@ -73,7 +87,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Branding */}
         <div className="text-center space-y-2">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground mx-auto">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground mx-auto shadow-xs">
             <Wallet className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold">DompetKu</h1>
@@ -83,7 +97,7 @@ export default function LoginPage() {
         </div>
 
         {/* Form Card */}
-        <Card>
+        <Card className="shadow-sm border-border/80">
           <CardHeader className="pb-4">
             <CardTitle>{isRegister ? 'Buat Akun' : 'Masuk'}</CardTitle>
             <CardDescription>
@@ -102,7 +116,7 @@ export default function LoginPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full bg-card hover:bg-primary hover:text-primary-foreground border-primary/40 font-semibold transition-all"
+                className="w-full bg-card hover:bg-primary hover:text-primary-foreground border-primary/40 font-semibold transition-all text-xs"
                 onClick={handleGuest}
               >
                 Masuk sebagai Tamu (Mode Demo)
@@ -118,10 +132,10 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
               {isRegister && (
-                <div className="space-y-2">
-                  <Label htmlFor="namaLengkap">Nama Lengkap</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="namaLengkap" className="text-xs">Nama Lengkap</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -130,14 +144,14 @@ export default function LoginPage() {
                       placeholder="Nama lengkapmu"
                       value={form.namaLengkap}
                       onChange={handleChange}
-                      className="pl-9"
+                      className="pl-9 h-10"
                       required
                     />
                   </div>
                 </div>
               )}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-xs">Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -147,13 +161,13 @@ export default function LoginPage() {
                     placeholder="email@kampus.ac.id"
                     value={form.email}
                     onChange={handleChange}
-                    className="pl-9"
+                    className="pl-9 h-10"
                     required
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className="text-xs">Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -163,7 +177,7 @@ export default function LoginPage() {
                     placeholder="Minimal 6 karakter"
                     value={form.password}
                     onChange={handleChange}
-                    className="pl-9"
+                    className="pl-9 h-10"
                     minLength={6}
                     required
                   />
@@ -171,12 +185,20 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <p className="text-sm text-destructive bg-destructive/10 rounded-md p-3">
-                  {error}
-                </p>
+                <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-3">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
               )}
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              {success && (
+                <div className="flex items-start gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md p-3">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
+                  <span>{success}</span>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full mt-2" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {isRegister ? 'Daftar' : 'Masuk'}
               </Button>
@@ -187,13 +209,13 @@ export default function LoginPage() {
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">atau</span>
+                <span className="bg-card px-2 text-muted-foreground">opsi lain</span>
               </div>
             </div>
 
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full text-xs"
               onClick={handleGoogle}
               disabled={loading}
             >
@@ -218,13 +240,14 @@ export default function LoginPage() {
               Masuk dengan Google
             </Button>
           </CardContent>
-          <CardFooter className="justify-center">
+          <CardFooter className="justify-center pt-0">
             <button
               type="button"
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              className="text-xs text-muted-foreground hover:text-primary transition-colors underline-offset-4 hover:underline"
               onClick={() => {
                 setIsRegister(!isRegister)
                 setError('')
+                setSuccess('')
               }}
             >
               {isRegister

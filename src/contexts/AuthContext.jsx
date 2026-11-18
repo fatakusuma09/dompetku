@@ -136,7 +136,7 @@ export function AuthProvider({ children }) {
     if (!isSupabaseConfigured) {
       throw new Error('Supabase belum dikonfigurasi. Silakan masuk sebagai Tamu terlebih dahulu.')
     }
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -144,6 +144,7 @@ export function AuthProvider({ children }) {
       },
     })
     if (error) throw error
+    return data
   }
 
   const signInWithGoogle = async () => {
