@@ -68,13 +68,76 @@ export const KATEGORI_PEMASUKAN = [
   'Lainnya',
 ]
 
+export const KANTONG_CONFIG = [
+  {
+    id: 'makan',
+    nama: 'Makan & Jajan',
+    deskripsi: 'Jatah makan harian, warteg, ngopi, kuliner',
+    kategori: ['Makanan', 'Nongkrong'],
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-500',
+    badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
+    isDaily: true,
+  },
+  {
+    id: 'rutin',
+    nama: 'Kebutuhan Rutin',
+    deskripsi: 'Bensin, laundry, kos, print tugas, pulsa',
+    kategori: ['Bensin / Transport', 'Transport', 'Laundry', 'Kos/Sewa', 'Print/Tugas', 'Pulsa/Internet'],
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-500',
+    badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
+    isDaily: false,
+  },
+  {
+    id: 'urgensi',
+    nama: 'Dana Urgensi',
+    deskripsi: 'Servis motor, tambal ban, obat, keadaan mendesak',
+    kategori: ['Servis Motor', 'Dana Urgensi / Darurat'],
+    color: 'text-rose-600',
+    bgColor: 'bg-rose-500',
+    badgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
+    isDaily: false,
+  },
+  {
+    id: 'lainnya',
+    nama: 'Belanja & Lainnya',
+    deskripsi: 'Belanja pribadi, hiburan, & pengeluaran variatif',
+    kategori: ['Belanja', 'Lainnya'],
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-500',
+    badgeColor: 'bg-purple-100 text-purple-800 border-purple-200',
+    isDaily: false,
+  },
+]
+
 export const KATEGORI_PENGELUARAN = [
   'Makanan',
-  'Transport',
+  'Bensin / Transport',
+  'Laundry',
+  'Servis Motor',
+  'Nongkrong',
   'Kos/Sewa',
   'Print/Tugas',
-  'Nongkrong',
-  'Belanja',
   'Pulsa/Internet',
+  'Dana Urgensi / Darurat',
+  'Belanja',
   'Lainnya',
 ]
+
+export function getKantongForKategori(kategoriName) {
+  const name = (kategoriName || '').toLowerCase()
+  for (const kantong of KANTONG_CONFIG) {
+    if (
+      kantong.kategori.some(
+        (k) =>
+          k.toLowerCase() === name ||
+          name.includes(k.toLowerCase()) ||
+          k.toLowerCase().includes(name)
+      )
+    ) {
+      return kantong
+    }
+  }
+  return KANTONG_CONFIG[3]
+}

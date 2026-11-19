@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { getStartOfMonth, getEndOfMonth } from '@/lib/utils'
+import { getStartOfMonth, getEndOfMonth, getKantongForKategori } from '@/lib/utils'
 
 const GUEST_TX_KEY = 'dompetku_guest_tx'
 
@@ -49,6 +49,8 @@ export function useTransactions() {
     totalPengeluaran: 0,
     saldo: 0,
     pengeluaranHariIni: 0,
+    pengeluaranPerKantong: { makan: 0, rutin: 0, urgensi: 0, lainnya: 0 },
+    pengeluaranMakanHariIni: 0,
   })
 
   const calcSummary = (data) => {
@@ -67,11 +69,27 @@ export function useTransactions() {
       .filter((t) => t.tipe === 'pengeluaran' && t.tanggal === today)
       .reduce((sum, t) => sum + Number(t.jumlah), 0)
 
+    const pengeluaranPerKantong = { makan: 0, rutin: 0, urgensi: 0, lainnya: 0 }
+    let pengeluaranMakanHariIni = 0
+
+    list
+      .filter((t) => t.tipe === 'pengeluaran')
+      .forEach((t) => {
+        const kantong = getKantongForKategori(t.kategori)
+        const amt = Number(t.jumlah) || 0
+        pengeluaranPerKantong[kantong.id] = (pengeluaranPerKantong[kantong.id] || 0) + amt
+        if (t.tanggal === today && kantong.id === 'makan') {
+          pengeluaranMakanHariIni += amt
+        }
+      })
+
     setSummary({
       totalPemasukan,
       totalPengeluaran,
       saldo: totalPemasukan - totalPengeluaran,
       pengeluaranHariIni,
+      pengeluaranPerKantong,
+      pengeluaranMakanHariIni,
     })
   }
 

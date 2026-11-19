@@ -19,6 +19,7 @@ export function AuthProvider({ children }) {
           nama_lengkap: 'Pengguna',
           budget_bulanan: 1500000,
           batas_harian: 50000,
+          pos_budget: { makan: 700000, rutin: 400000, urgensi: 250000, lainnya: 150000 },
         })
         return
       }
@@ -32,7 +33,10 @@ export function AuthProvider({ children }) {
       if (error) throw error
 
       if (data) {
-        setProfile(data)
+        setProfile({
+          ...data,
+          pos_budget: data.pos_budget || { makan: 0, rutin: 0, urgensi: 0, lainnya: 0 },
+        })
       } else {
         // Jika profil belum ada, inisialisasi default
         setProfile({
@@ -40,6 +44,7 @@ export function AuthProvider({ children }) {
           nama_lengkap: user?.user_metadata?.full_name || 'Pengguna',
           budget_bulanan: 0,
           batas_harian: 0,
+          pos_budget: { makan: 0, rutin: 0, urgensi: 0, lainnya: 0 },
         })
       }
     } catch (err) {
@@ -49,6 +54,7 @@ export function AuthProvider({ children }) {
         nama_lengkap: 'Pengguna',
         budget_bulanan: 0,
         batas_harian: 0,
+        pos_budget: { makan: 0, rutin: 0, urgensi: 0, lainnya: 0 },
       })
     }
   }
@@ -131,6 +137,7 @@ export function AuthProvider({ children }) {
         nama_lengkap: 'Mahasiswa Tamu',
         budget_bulanan: 1500000,
         batas_harian: 50000,
+        pos_budget: { makan: 700000, rutin: 400000, urgensi: 250000, lainnya: 150000 },
       },
     }
     localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestData))

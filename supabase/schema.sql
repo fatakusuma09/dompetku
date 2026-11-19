@@ -12,12 +12,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   avatar_url TEXT,
   budget_bulanan NUMERIC(12, 2) DEFAULT 0,
   batas_harian NUMERIC(12, 2) DEFAULT 0,
+  pos_budget JSONB DEFAULT '{"makan": 0, "rutin": 0, "urgensi": 0, "lainnya": 0}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Pastikan kolom batas_harian ada jika tabel sudah pernah dibuat sebelumnya
+-- Pastikan kolom batas_harian & pos_budget ada jika tabel sudah pernah dibuat sebelumnya
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS batas_harian NUMERIC(12, 2) DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS pos_budget JSONB DEFAULT '{"makan": 0, "rutin": 0, "urgensi": 0, "lainnya": 0}'::jsonb;
 
 -- 2. Tabel Transactions (pemasukan & pengeluaran)
 CREATE TABLE IF NOT EXISTS public.transactions (

@@ -7,6 +7,7 @@ import {
   parseFormattedNumber,
   KATEGORI_PEMASUKAN,
   KATEGORI_PENGELUARAN,
+  getKantongForKategori,
 } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -145,9 +146,18 @@ export default function TransactionsPage() {
 
             {/* Quick Category Chips */}
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5 block">
-                Kategori
-              </Label>
+              <div className="flex items-center justify-between mb-1.5">
+                <Label className="text-xs text-muted-foreground">Kategori</Label>
+                {tipe === 'pengeluaran' && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-md font-medium border ${
+                      getKantongForKategori(kategori).badgeColor
+                    }`}
+                  >
+                    Masuk Pos: {getKantongForKategori(kategori).nama}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {categories.map((c) => (
                   <button
@@ -255,11 +265,21 @@ export default function TransactionsPage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-sm font-medium">{tx.kategori}</span>
-                      <Badge variant="outline" className="text-[10px] py-0 px-1.5">
-                        {tx.tipe}
-                      </Badge>
+                      {tx.tipe === 'pengeluaran' ? (
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded border font-medium ${
+                            getKantongForKategori(tx.kategori).badgeColor
+                          }`}
+                        >
+                          {getKantongForKategori(tx.kategori).nama}
+                        </span>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                          {tx.tipe}
+                        </Badge>
+                      )}
                     </div>
                     {tx.catatan && (
                       <p className="text-xs text-muted-foreground truncate">

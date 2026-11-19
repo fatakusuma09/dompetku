@@ -3,7 +3,13 @@ import { useTransactions } from '@/hooks/useTransactions'
 import { useDebts } from '@/hooks/useDebts'
 import { useSavingsGoals } from '@/hooks/useSavingsGoals'
 import { useAuth } from '@/contexts/AuthContext'
-import { formatRupiah, formatTanggal, getRemainingDays, getDayProgress } from '@/lib/utils'
+import {
+  formatRupiah,
+  formatTanggal,
+  getRemainingDays,
+  getDayProgress,
+  KANTONG_CONFIG,
+} from '@/lib/utils'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +26,7 @@ import {
   Settings,
   AlertTriangle,
   Calculator,
+  PieChart,
 } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -33,12 +40,28 @@ export default function DashboardPage() {
   const budgetBulanan = Number(profile?.budget_bulanan || 0)
   const batasHarianManual = Number(profile?.batas_harian || 0)
 
+  // Pos / Kantong Budget Logic
+  const posBudget = profile?.pos_budget || {}
+  const isPosMakanActive = Number(posBudget?.makan || 0) > 0
+  const budgetMakan = Number(posBudget?.makan || 0)
+  const pengeluaranMakanTotal = Number(summary.pengeluaranPerKantong?.makan || 0)
+  const sisaBudgetMakan = budgetMakan - pengeluaranMakanTotal
+
   const isManualLimit = batasHarianManual > 0
-  const sisaBudget = budgetBulanan > 0 ? budgetBulanan - summary.totalPengeluaran : summary.saldo
+  const sisaBudget = isPosMakanActive
+    ? Math.max(sisaBudgetMakan, 0)
+    : budgetBulanan > 0
+    ? budgetBulanan - summary.totalPengeluaran
+    : summary.saldo
+
   const batasHarianOtomatis = Math.max(Math.floor(sisaBudget / remainingDays), 0)
   const batasHarian = isManualLimit ? batasHarianManual : batasHarianOtomatis
 
-  const pengeluaranHariIni = summary.pengeluaranHariIni || 0
+  // Pengeluaran hari ini: jika pos makan aktif, hitung khusus makan hari ini agar servis/laundry tidak memotong batas harian makan
+  const pengeluaranHariIni = isPosMakanActive
+    ? summary.pengeluaranMakanHariIni || 0
+    : summary.pengeluaranHariIni || 0
+
   const sisaHariIni = Math.max(batasHarian - pengeluaranHariIni, 0)
   const isOverDailyLimit = batasHarian > 0 && pengeluaranHariIni > batasHarian
   const dailyUsedPercent = batasHarian > 0
@@ -143,7 +166,9 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <PiggyBank className={`h-5 w-5 ${isOverDailyLimit ? 'text-destructive' : 'text-primary'}`} />
-                <h3 className="font-semibold text-sm">Batas Pengeluaran Harian</h3>
+                <h3 className="font-semibold text-sm">
+                  {isPosMakanActive ? 'Batas Harian (Khusus Makan)' : 'Batas Pengeluaran Harian'}
+                </h3>
               </div>
               <div className="flex items-center gap-1.5">
                 <Badge variant={isManualLimit ? 'default' : 'outline'} className="text-[10px] py-0 px-1.5">
@@ -194,9 +219,11 @@ export default function DashboardPage() {
             )}
 
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-2">
-              <Calendar className="h-3.5 w-3.5" />
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
               <span>
-                {isManualLimit
+                {isPosMakanActive
+                  ? `🍔 Khusus jatah makan: sisa budget makan dibagi ${remainingDays} hari (servis & bensin aman!)`
+                  : isManualLimit
                   ? `Limit kustom aktif • Sisa ${remainingDays} hari lagi di bulan ini`
                   : `Dihitung otomatis: sisa dana dibagi ${remainingDays} hari`}
               </span>
@@ -338,6 +365,90 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pos / Kantong Budget Section */}
+      <Card className="border-border shadow-xs">
+        <CardContent className="p-4 sm:p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-sm">Pos / Kantong Budget (Amplop)</h3>
+            </div>
+            <Link
+              to="/pengaturan"
+              className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
+            >
+              Atur Alokasi <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+            {KANTONG_CONFIG.map((k) => {
+              const alokasi = Number(posBudget[k.id] || 0)
+              const terpakai = Number(summary.pengeluaranPerKantong?.[k.id] || 0)
+              const sisa = alokasi > 0 ? alokasi - terpakai : 0
+              const pct = alokasi > 0 ? Math.min(Math.round((terpakai / alokasi) * 100), 100) : 0
+              const isOver = alokasi > 0 && terpakai > alokasi
+
+              return (
+                <div
+                  key={k.id}
+                  className={`p-3 rounded-xl border text-xs space-y-2 transition-all ${
+                    isOver
+                      ? 'bg-red-50/50 border-red-200'
+                      : alokasi > 0
+                      ? 'bg-card border-border shadow-xs'
+                      : 'bg-muted/40 border-dashed border-border'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground text-xs">{k.nama}</span>
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        isOver
+                          ? 'bg-red-100 text-red-700'
+                          : alokasi > 0
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {alokasi > 0 ? `${pct}%` : 'Belum diatur'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-[11px] font-medium">
+                      <span className="text-muted-foreground">Terpakai:</span>
+                      <span className={isOver ? 'text-red-600 font-bold' : 'text-foreground'}>
+                        {formatRupiah(terpakai)}
+                      </span>
+                    </div>
+                    {alokasi > 0 && (
+                      <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                        <span>Alokasi: {formatRupiah(alokasi)}</span>
+                        <span className={sisa < 0 ? 'text-red-600 font-semibold' : 'text-emerald-600 font-semibold'}>
+                          {sisa >= 0 ? `Sisa: ${formatRupiah(sisa)}` : `Tekor: ${formatRupiah(Math.abs(sisa))}`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {alokasi > 0 ? (
+                    <Progress
+                      value={pct}
+                      className={`h-1.5 ${isOver ? '[&>div]:bg-red-500' : pct > 80 ? '[&>div]:bg-amber-500' : ''}`}
+                    />
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground italic">
+                      Bisa diatur di Pengaturan
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Debt Summary */}
       {(debtSummary.totalHutang > 0 || debtSummary.totalPiutang > 0) && (
