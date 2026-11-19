@@ -119,10 +119,10 @@ export default function SettingsPage() {
       kantongList.map((k) =>
         k.id === id
           ? {
-              ...k,
-              alokasi: parseFormattedNumber(formatted),
-              _rawVal: formatted,
-            }
+            ...k,
+            alokasi: parseFormattedNumber(formatted),
+            _rawVal: formatted,
+          }
           : k
       )
     )

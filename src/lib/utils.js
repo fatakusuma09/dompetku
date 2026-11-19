@@ -125,6 +125,25 @@ export const DEFAULT_KANTONG = [
   },
 ]
 
+export function getKantongListFromProfile(prof) {
+  const pb = prof?.pos_budget
+  if (Array.isArray(pb?.kantong_list)) {
+    return pb.kantong_list
+  }
+  if (Array.isArray(pb)) {
+    return pb
+  }
+  if (pb && typeof pb === 'object' && (pb.makan || pb.rutin || pb.urgensi || pb.lainnya)) {
+    return [
+      { id: 'k_makan', nama: 'Makan & Minum', icon: '🍔', alokasi: Number(pb.makan || 0), isDaily: true },
+      { id: 'k_motor', nama: 'Bensin & Servis', icon: '🛵', alokasi: Number(pb.rutin || 0), isDaily: false },
+      { id: 'k_urgensi', nama: 'Dana Urgensi / Darurat', icon: '🚨', alokasi: Number(pb.urgensi || 0), isDaily: false },
+      { id: 'k_lainnya', nama: 'Belanja & Lainnya', icon: '🛍️', alokasi: Number(pb.lainnya || 0), isDaily: false },
+    ]
+  }
+  return DEFAULT_KANTONG
+}
+
 export const KATEGORI_PENGELUARAN = [
   'Makanan',
   'Bensin / Transport',

@@ -36,15 +36,26 @@ class ErrorBoundary extends React.Component {
           <p className="text-xs text-muted-foreground mt-1 max-w-sm mb-4">
             {this.state.error?.message || 'Gagal memuat komponen.'}
           </p>
-          <Button
-            size="sm"
-            onClick={() => {
-              localStorage.clear()
-              window.location.href = '/login'
-            }}
-          >
-            Muat Ulang Aplikasi
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => {
+                this.setState({ hasError: false, error: null })
+                window.location.reload()
+              }}
+            >
+              Muat Ulang Halaman
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                window.location.href = '/dashboard'
+              }}
+            >
+              Ke Beranda
+            </Button>
+          </div>
         </div>
       )
     }

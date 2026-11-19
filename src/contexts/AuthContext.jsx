@@ -1,29 +1,26 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { DEFAULT_KANTONG } from '@/lib/utils'
+import { DEFAULT_KANTONG, getKantongListFromProfile } from '@/lib/utils'
 
-const AuthContext = createContext(null)
+export { getKantongListFromProfile }
+
+const defaultAuthValue = {
+  user: null,
+  profile: null,
+  loading: true,
+  isGuest: false,
+  isSupabaseConfigured,
+  loginAsGuest: () => {},
+  signIn: async () => {},
+  signUp: async () => {},
+  signInWithGoogle: async () => {},
+  signOut: async () => {},
+  updateProfile: async () => {},
+}
+
+const AuthContext = createContext(defaultAuthValue)
 
 const GUEST_STORAGE_KEY = 'dompetku_guest'
-
-export const getKantongListFromProfile = (prof) => {
-  const pb = prof?.pos_budget
-  if (Array.isArray(pb?.kantong_list)) {
-    return pb.kantong_list
-  }
-  if (Array.isArray(pb)) {
-    return pb
-  }
-  if (pb && typeof pb === 'object' && (pb.makan || pb.rutin || pb.urgensi || pb.lainnya)) {
-    return [
-      { id: 'k_makan', nama: 'Makan & Minum', icon: '🍔', alokasi: Number(pb.makan || 0), isDaily: true },
-      { id: 'k_motor', nama: 'Bensin & Servis', icon: '🛵', alokasi: Number(pb.rutin || 0), isDaily: false },
-      { id: 'k_urgensi', nama: 'Dana Urgensi / Darurat', icon: '🚨', alokasi: Number(pb.urgensi || 0), isDaily: false },
-      { id: 'k_lainnya', nama: 'Belanja & Lainnya', icon: '🛍️', alokasi: Number(pb.lainnya || 0), isDaily: false },
-    ]
-  }
-  return DEFAULT_KANTONG
-}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -262,8 +259,5 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth harus digunakan di dalam AuthProvider')
-  }
-  return context
+  return context || defaultAuthValue
 }
