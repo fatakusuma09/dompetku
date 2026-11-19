@@ -17,6 +17,8 @@ import {
   Loader2,
   Handshake,
   Target,
+  Settings,
+  AlertTriangle,
 } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -28,8 +30,19 @@ export default function DashboardPage() {
   const remainingDays = getRemainingDays()
   const dayProgress = getDayProgress()
   const budgetBulanan = Number(profile?.budget_bulanan || 0)
+  const batasHarianManual = Number(profile?.batas_harian || 0)
+
+  const isManualLimit = batasHarianManual > 0
   const sisaBudget = budgetBulanan > 0 ? budgetBulanan - summary.totalPengeluaran : summary.saldo
-  const batasHarian = Math.max(Math.floor(sisaBudget / remainingDays), 0)
+  const batasHarianOtomatis = Math.max(Math.floor(sisaBudget / remainingDays), 0)
+  const batasHarian = isManualLimit ? batasHarianManual : batasHarianOtomatis
+
+  const pengeluaranHariIni = summary.pengeluaranHariIni || 0
+  const sisaHariIni = Math.max(batasHarian - pengeluaranHariIni, 0)
+  const isOverDailyLimit = batasHarian > 0 && pengeluaranHariIni > batasHarian
+  const dailyUsedPercent = batasHarian > 0
+    ? Math.min(Math.round((pengeluaranHariIni / batasHarian) * 100), 100)
+    : 0
   const budgetUsedPercent = budgetBulanan > 0
     ? Math.min(Math.round((summary.totalPengeluaran / budgetBulanan) * 100), 100)
     : 0
@@ -115,31 +128,75 @@ export default function DashboardPage() {
 
       {/* Middle Widgets Grid (PC 2-Cols, Mobile 1-Col) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Safe-to-Spend Widget */}
-        <Card className="border-primary/20 bg-gradient-to-br from-emerald-50/50 to-background flex flex-col justify-between">
+        {/* Safe-to-Spend Widget with Configurable Daily Limit */}
+        <Card className={`border-primary/20 flex flex-col justify-between ${isOverDailyLimit ? 'bg-gradient-to-br from-red-50/70 to-background border-red-300' : 'bg-gradient-to-br from-emerald-50/50 to-background'}`}>
           <CardContent className="p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <PiggyBank className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-sm">Batas Aman Harian</h3>
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-primary mb-1">
-              {formatRupiah(batasHarian)}
-            </p>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
-              <Calendar className="h-3.5 w-3.5" />
-              <span>Sisa {remainingDays} hari lagi bulan ini</span>
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Waktu bulan berjalan</span>
-                <span className="font-medium">{dayProgress}%</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <PiggyBank className={`h-5 w-5 ${isOverDailyLimit ? 'text-destructive' : 'text-primary'}`} />
+                <h3 className="font-semibold text-sm">Batas Pengeluaran Harian</h3>
               </div>
-              <Progress value={dayProgress} />
+              <div className="flex items-center gap-1.5">
+                <Badge variant={isManualLimit ? 'default' : 'outline'} className="text-[10px] py-0 px-1.5">
+                  {isManualLimit ? 'Manual' : 'Otomatis'}
+                </Badge>
+                <Link
+                  to="/pengaturan"
+                  className="p-1 rounded-md text-muted-foreground hover:text-primary transition-colors"
+                  title="Atur Batas Harian"
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
-            {budgetBulanan > 0 && (
-              <div className="space-y-1.5 mt-3 pt-3 border-t">
+
+            <div className="flex items-baseline justify-between mb-1">
+              <div>
+                <p className={`text-2xl sm:text-3xl font-bold ${isOverDailyLimit ? 'text-destructive' : 'text-primary'}`}>
+                  {formatRupiah(batasHarian)}
+                  <span className="text-xs font-normal text-muted-foreground ml-1.5">/ hari</span>
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-muted-foreground">Hari ini terpakai</p>
+                <p className={`text-sm font-bold ${isOverDailyLimit ? 'text-destructive' : 'text-foreground'}`}>
+                  {formatRupiah(pengeluaranHariIni)}
+                </p>
+              </div>
+            </div>
+
+            {/* Daily Alert / Progress */}
+            {isOverDailyLimit ? (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium my-2.5 border border-destructive/20">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>Overbudget! Melebihi batas {formatRupiah(pengeluaranHariIni - batasHarian)}.</span>
+              </div>
+            ) : (
+              <div className="space-y-1.5 my-2.5">
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Budget bulanan</span>
+                  <span className="text-muted-foreground">Sisa jatah belanja hari ini</span>
+                  <span className="font-bold text-emerald-600">{formatRupiah(sisaHariIni)}</span>
+                </div>
+                <Progress
+                  value={dailyUsedPercent}
+                  className={`h-2 ${dailyUsedPercent > 80 ? '[&>div]:bg-amber-500' : ''}`}
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-3">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>
+                {isManualLimit
+                  ? `Limit kustom aktif • Sisa ${remainingDays} hari lagi di bulan ini`
+                  : `Dihitung otomatis: sisa dana dibagi ${remainingDays} hari`}
+              </span>
+            </div>
+
+            {budgetBulanan > 0 && (
+              <div className="space-y-1.5 pt-2.5 border-t">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Budget bulanan terpakai</span>
                   <span className="font-medium">
                     {formatRupiah(summary.totalPengeluaran)} / {formatRupiah(budgetBulanan)}
                   </span>

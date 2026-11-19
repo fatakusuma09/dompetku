@@ -13,6 +13,7 @@ export default function SettingsPage() {
 
   const [namaLengkap, setNamaLengkap] = useState('')
   const [budgetBulanan, setBudgetBulanan] = useState('')
+  const [batasHarian, setBatasHarian] = useState('')
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState('')
 
@@ -20,6 +21,7 @@ export default function SettingsPage() {
     if (profile) {
       setNamaLengkap(profile.nama_lengkap || '')
       setBudgetBulanan(profile.budget_bulanan ? String(profile.budget_bulanan) : '0')
+      setBatasHarian(profile.batas_harian ? String(profile.batas_harian) : '0')
     }
   }, [profile])
 
@@ -31,6 +33,7 @@ export default function SettingsPage() {
       await updateProfile({
         nama_lengkap: namaLengkap,
         budget_bulanan: Number(budgetBulanan) || 0,
+        batas_harian: Number(batasHarian) || 0,
       })
       setSuccess('Pengaturan berhasil disimpan!')
       setTimeout(() => setSuccess(''), 3000)
@@ -85,18 +88,18 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Budget Setting */}
+        {/* Budget & Daily Limit Setting */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Wallet className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Target Budget Bulanan</CardTitle>
+              <CardTitle className="text-base">Target Budget & Batas Harian</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             <div>
               <Label className="text-xs text-muted-foreground">
-                Alokasi Pengeluaran Maksimal per Bulan (Rp)
+                Target Budget Bulanan (Rp)
               </Label>
               <div className="relative mt-1">
                 <span className="absolute left-3 top-2.5 text-sm font-semibold text-muted-foreground">
@@ -112,7 +115,29 @@ export default function SettingsPage() {
                 />
               </div>
               <p className="text-[11px] text-muted-foreground mt-1.5">
-                Nilai ini digunakan oleh <strong>Safe-to-Spend Calculator</strong> di Beranda untuk membagi batas aman belanja harian kamu.
+                Alokasi maksimal pengeluaran sebulan.
+              </p>
+            </div>
+
+            <div className="pt-3 border-t">
+              <Label className="text-xs text-muted-foreground">
+                Batas Pengeluaran Harian Kustom (Rp)
+              </Label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-2.5 text-sm font-semibold text-muted-foreground">
+                  Rp
+                </span>
+                <Input
+                  type="number"
+                  value={batasHarian}
+                  onChange={(e) => setBatasHarian(e.target.value)}
+                  placeholder="0"
+                  className="pl-10 text-base font-bold"
+                  min="0"
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+                Isi <strong>0</strong> jika ingin dihitung otomatis oleh sistem (sisa budget dibagi sisa hari). Masukkan nominal tertentu (misal: <em>Rp 50.000</em>) untuk membatasi pengeluaran per hari secara manual.
               </p>
             </div>
           </CardContent>

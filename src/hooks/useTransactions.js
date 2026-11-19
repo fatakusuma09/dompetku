@@ -48,21 +48,30 @@ export function useTransactions() {
     totalPemasukan: 0,
     totalPengeluaran: 0,
     saldo: 0,
+    pengeluaranHariIni: 0,
   })
 
   const calcSummary = (data) => {
-    const totalPemasukan = (data || [])
+    const today = new Date().toISOString().split('T')[0]
+    const list = data || []
+
+    const totalPemasukan = list
       .filter((t) => t.tipe === 'pemasukan')
       .reduce((sum, t) => sum + Number(t.jumlah), 0)
 
-    const totalPengeluaran = (data || [])
+    const totalPengeluaran = list
       .filter((t) => t.tipe === 'pengeluaran')
+      .reduce((sum, t) => sum + Number(t.jumlah), 0)
+
+    const pengeluaranHariIni = list
+      .filter((t) => t.tipe === 'pengeluaran' && t.tanggal === today)
       .reduce((sum, t) => sum + Number(t.jumlah), 0)
 
     setSummary({
       totalPemasukan,
       totalPengeluaran,
       saldo: totalPemasukan - totalPengeluaran,
+      pengeluaranHariIni,
     })
   }
 

@@ -18,6 +18,7 @@ export function AuthProvider({ children }) {
           id: userId,
           nama_lengkap: 'Pengguna',
           budget_bulanan: 1500000,
+          batas_harian: 50000,
         })
         return
       }
@@ -38,6 +39,7 @@ export function AuthProvider({ children }) {
           id: userId,
           nama_lengkap: user?.user_metadata?.full_name || 'Pengguna',
           budget_bulanan: 0,
+          batas_harian: 0,
         })
       }
     } catch (err) {
@@ -46,6 +48,7 @@ export function AuthProvider({ children }) {
         id: userId,
         nama_lengkap: 'Pengguna',
         budget_bulanan: 0,
+        batas_harian: 0,
       })
     }
   }
@@ -127,6 +130,7 @@ export function AuthProvider({ children }) {
         id: 'guest-user-123',
         nama_lengkap: 'Mahasiswa Tamu',
         budget_bulanan: 1500000,
+        batas_harian: 50000,
       },
     }
     localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestData))
