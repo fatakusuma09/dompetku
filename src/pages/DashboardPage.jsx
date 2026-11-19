@@ -49,7 +49,10 @@ export default function DashboardPage() {
     : 0
 
   // Proyeksi sisa uang akhir bulan jika konsisten memakai batas harian
-  const totalRencanaKeluarSisaBulan = batasHarian * remainingDays
+  // Hari ini sisa jatah belanja = sisaHariIni
+  // Hari esok s/d akhir bulan = (remainingDays - 1) hari
+  const hariSisaBulanDepan = Math.max(remainingDays - 1, 0)
+  const totalRencanaKeluarSisaBulan = sisaHariIni + (hariSisaBulanDepan * batasHarian)
   const proyeksiSisaUangAkhirBulan = summary.saldo - totalRencanaKeluarSisaBulan
   const isDefisitAkhirBulan = proyeksiSisaUangAkhirBulan < 0
 
@@ -202,29 +205,59 @@ export default function DashboardPage() {
             {/* Proyeksi Sisa Uang Akhir Bulan jika pakai batas harian */}
             {batasHarian > 0 && (
               <div
-                className={`p-2.5 rounded-lg border text-xs space-y-1 my-2.5 ${
+                className={`p-3 rounded-xl border text-xs space-y-2.5 my-3 ${
                   isDefisitAkhirBulan
                     ? 'bg-red-50/90 border-red-200 text-red-900'
                     : 'bg-emerald-50/90 border-emerald-200 text-emerald-900'
                 }`}
               >
                 <div className="flex items-center justify-between font-semibold">
-                  <span className="flex items-center gap-1.5">
-                    <Calculator className="h-3.5 w-3.5" />
-                    Estimasi Sisa Akhir Bulan:
+                  <span className="flex items-center gap-1.5 text-xs">
+                    <Calculator className="h-4 w-4" />
+                    Simulasi S/D Akhir Bulan
                   </span>
+                  <Badge
+                    variant={isDefisitAkhirBulan ? 'destructive' : 'default'}
+                    className="text-[10px] py-0 px-2"
+                  >
+                    {isDefisitAkhirBulan ? 'Waspada Defisit' : 'Aman (Surplus)'}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 p-2 rounded-lg bg-background/60 border border-border/40 text-[11px]">
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Sisa Hari di Bulan Ini:</span>
+                    <span className="font-bold text-foreground text-xs">{remainingDays} hari</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px]">Rencana Belanja:</span>
+                    <span className="font-bold text-foreground text-xs">{formatRupiah(totalRencanaKeluarSisaBulan)}</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-background/90 border shadow-xs flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground font-medium">
+                      Estimasi Sisa Uang Akhir Bulan:
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      (Saldo saat ini - rencana belanja)
+                    </p>
+                  </div>
                   <span
-                    className={`text-sm font-bold ${
-                      isDefisitAkhirBulan ? 'text-red-600' : 'text-emerald-700'
+                    className={`text-base font-extrabold ${
+                      isDefisitAkhirBulan ? 'text-red-600' : 'text-emerald-600'
                     }`}
                   >
+                    {proyeksiSisaUangAkhirBulan >= 0 ? '+' : ''}
                     {formatRupiah(proyeksiSisaUangAkhirBulan)}
                   </span>
                 </div>
+
                 <p className="text-[10px] text-muted-foreground leading-normal">
                   {isDefisitAkhirBulan
-                    ? `⚠️ Jika belanja ${formatRupiah(batasHarian)}/hari x ${remainingDays} hari lagi, uangmu akan tekor ${formatRupiah(Math.abs(proyeksiSisaUangAkhirBulan))} di akhir bulan!`
-                    : `💡 Jika disiplin belanja ${formatRupiah(batasHarian)}/hari x ${remainingDays} hari lagi, uangmu masih sisa ${formatRupiah(proyeksiSisaUangAkhirBulan)}.`}
+                    ? `⚠️ Jika belanja ${formatRupiah(batasHarian)}/hari selama ${remainingDays} hari ke depan, kamu diperkirakan tekor ${formatRupiah(Math.abs(proyeksiSisaUangAkhirBulan))} di akhir bulan.`
+                    : `💡 Jika tertib belanja maksimal ${formatRupiah(batasHarian)}/hari selama ${remainingDays} hari ke depan, dompetmu masih aman dan tersisa ${formatRupiah(proyeksiSisaUangAkhirBulan)}.`}
                 </p>
               </div>
             )}

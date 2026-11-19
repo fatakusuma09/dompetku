@@ -182,6 +182,11 @@ export default function DebtsPage() {
                   className="mt-1 font-semibold"
                   required
                 />
+                {jumlah && parseFormattedNumber(jumlah) > 0 && (
+                  <p className="text-xs text-primary font-semibold mt-1">
+                    Terbaca: {formatRupiah(parseFormattedNumber(jumlah))}
+                  </p>
+                )}
               </div>
 
               <div>

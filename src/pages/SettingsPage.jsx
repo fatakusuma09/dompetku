@@ -20,8 +20,16 @@ export default function SettingsPage() {
   useEffect(() => {
     if (profile) {
       setNamaLengkap(profile.nama_lengkap || '')
-      setBudgetBulanan(profile.budget_bulanan ? formatNumberWithDots(profile.budget_bulanan) : '0')
-      setBatasHarian(profile.batas_harian ? formatNumberWithDots(profile.batas_harian) : '0')
+      setBudgetBulanan(
+        profile.budget_bulanan && Number(profile.budget_bulanan) > 0
+          ? formatNumberWithDots(profile.budget_bulanan)
+          : ''
+      )
+      setBatasHarian(
+        profile.batas_harian && Number(profile.batas_harian) > 0
+          ? formatNumberWithDots(profile.batas_harian)
+          : ''
+      )
     }
   }, [profile])
 
@@ -114,6 +122,11 @@ export default function SettingsPage() {
                   className="pl-10 text-base font-bold"
                 />
               </div>
+              {budgetBulanan && parseFormattedNumber(budgetBulanan) > 0 && (
+                <p className="text-xs text-primary font-semibold mt-1">
+                  Format: {formatRupiah(parseFormattedNumber(budgetBulanan))}
+                </p>
+              )}
               <p className="text-[11px] text-muted-foreground mt-1.5">
                 Alokasi maksimal pengeluaran sebulan.
               </p>
@@ -136,6 +149,11 @@ export default function SettingsPage() {
                   className="pl-10 text-base font-bold"
                 />
               </div>
+              {batasHarian && parseFormattedNumber(batasHarian) > 0 && (
+                <p className="text-xs text-primary font-semibold mt-1">
+                  Format: {formatRupiah(parseFormattedNumber(batasHarian))} / hari
+                </p>
+              )}
               <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
                 Isi <strong>0</strong> jika ingin dihitung otomatis oleh sistem (sisa budget dibagi sisa hari). Masukkan nominal tertentu (misal: <em>Rp 50.000</em>) untuk membatasi pengeluaran per hari secara manual.
               </p>
