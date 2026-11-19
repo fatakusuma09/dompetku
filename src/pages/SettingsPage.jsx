@@ -308,13 +308,13 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Pos / Kantong Budget Card (Kustomisasi) */}
+        {/* Pos / Kantong Budget Card (Kustomisasi Mandiri) */}
         <Card className="border-primary/20">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <PieChart className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Pos / Kantong Budget (Amplop)</CardTitle>
+                <CardTitle className="text-base">Pos / Kantong Budget (Metode Amplop)</CardTitle>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <Button
@@ -335,7 +335,7 @@ export default function SettingsPage() {
                   className="text-xs h-8 gap-1"
                 >
                   <Plus className="h-3 w-3" />
-                  {showAddForm ? 'Tutup Form' : 'Tambah Kantong'}
+                  {showAddForm ? 'Tutup Form' : 'Tambah Pos'}
                 </Button>
               </div>
             </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth, getKantongListFromProfile } from '@/contexts/AuthContext'
-import { getStartOfMonth, getEndOfMonth, getMatchingKantong } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
+import { getStartOfMonth, getEndOfMonth, getMatchingKantong, DEFAULT_KANTONG } from '@/lib/utils'
 
 const GUEST_TX_KEY = 'dompetku_guest_tx'
 
@@ -41,7 +41,7 @@ const DEFAULT_GUEST_TX = [
 ]
 
 export function useTransactions() {
-  const { user, isGuest, profile } = useAuth()
+  const { user, isGuest } = useAuth()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState({
@@ -53,11 +53,9 @@ export function useTransactions() {
     pengeluaranDailyHariIni: 0,
   })
 
-  const calcSummary = useCallback((data) => {
+  const calcSummary = (data) => {
     const today = new Date().toISOString().split('T')[0]
     const list = data || []
-    const kantongList = getKantongListFromProfile(profile)
-    const dailyKantong = kantongList.find((k) => k.isDaily) || kantongList[0]
 
     const totalPemasukan = list
       .filter((t) => t.tipe === 'pemasukan')
@@ -78,15 +76,14 @@ export function useTransactions() {
       .filter((t) => t.tipe === 'pengeluaran')
       .forEach((t) => {
         const amt = Number(t.jumlah) || 0
-        const matchedPocket = t.kantong_id
-          ? kantongList.find((k) => k.id === t.kantong_id) || { id: t.kantong_id, isDaily: false }
-          : getMatchingKantong(t.kategori, kantongList)
-        const kId = matchedPocket?.id || dailyKantong?.id || 'k_makan'
+        const kantong = t.kantong_id
+          ? { id: t.kantong_id }
+          : getMatchingKantong(t.kategori)
+        const kId = kantong?.id || 'k_makan'
         pengeluaranPerKantong[kId] = (pengeluaranPerKantong[kId] || 0) + amt
 
-        // Jika transaksi terjadi hari ini dan berada di kantong daily
-        const isDailyPocket = matchedPocket?.isDaily || kId === dailyKantong?.id
-        if (t.tanggal === today && isDailyPocket) {
+        // Jika transaksi terjadi hari ini dan di kantong harian / makan
+        if (t.tanggal === today && (kId === 'k_makan' || kantong?.isDaily)) {
           pengeluaranDailyHariIni += amt
         }
       })
@@ -99,7 +96,7 @@ export function useTransactions() {
       pengeluaranPerKantong,
       pengeluaranDailyHariIni,
     })
-  }, [profile])
+  }
 
   const fetchTransactions = useCallback(async () => {
     if (!user) return
@@ -139,7 +136,7 @@ export function useTransactions() {
     } finally {
       setLoading(false)
     }
-  }, [user, isGuest, calcSummary])
+  }, [user, isGuest])
 
   useEffect(() => {
     fetchTransactions()
