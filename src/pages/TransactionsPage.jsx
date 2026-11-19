@@ -141,11 +141,6 @@ export default function TransactionsPage() {
                   required
                 />
               </div>
-              {jumlah && parseFormattedNumber(jumlah) > 0 && (
-                <p className="text-xs text-primary font-semibold mt-1">
-                  Terbaca: {formatRupiah(parseFormattedNumber(jumlah))}
-                </p>
-              )}
             </div>
 
             {/* Quick Category Chips */}

@@ -182,11 +182,6 @@ export default function SavingsPage() {
                       required
                     />
                   </div>
-                  {targetJumlah && parseFormattedNumber(targetJumlah) > 0 && (
-                    <p className="text-xs text-primary font-semibold mt-1">
-                      Terbaca: {formatRupiah(parseFormattedNumber(targetJumlah))}
-                    </p>
-                  )}
                 </div>
 
                 <div>
@@ -346,22 +341,15 @@ export default function SavingsPage() {
                         ))}
                       </div>
                       <div className="flex flex-col sm:flex-row gap-2">
-                        <div className="flex-1">
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            placeholder="Nominal simpanan (Rp)"
-                            value={depositAmount}
-                            onChange={(e) => setDepositAmount(formatNumberWithDots(e.target.value))}
-                            className="h-9 text-xs font-semibold w-full"
-                            autoFocus
-                          />
-                          {depositAmount && parseFormattedNumber(depositAmount) > 0 && (
-                            <p className="text-[10px] text-primary font-semibold mt-0.5">
-                              Terbaca: {formatRupiah(parseFormattedNumber(depositAmount))}
-                            </p>
-                          )}
-                        </div>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Nominal simpanan (Rp)"
+                          value={depositAmount}
+                          onChange={(e) => setDepositAmount(formatNumberWithDots(e.target.value))}
+                          className="h-9 text-xs font-semibold flex-1"
+                          autoFocus
+                        />
                         <div className="flex gap-1.5 justify-end">
                           <Button
                             size="sm"
