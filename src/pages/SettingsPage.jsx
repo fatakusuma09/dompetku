@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth, getKantongListFromProfile } from '@/contexts/AuthContext'
 import {
   formatRupiah,
   formatNumberWithDots,
   parseFormattedNumber,
-  KANTONG_CONFIG,
+  DEFAULT_KANTONG,
+  KANTONG_EMOJI_OPTIONS,
 } from '@/lib/utils'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
 import {
   User,
   Wallet,
@@ -20,10 +22,9 @@ import {
   CheckCircle2,
   PieChart,
   Sparkles,
-  Utensils,
-  Repeat,
-  ShieldAlert,
-  ShoppingBag,
+  Plus,
+  Trash2,
+  Star,
 } from 'lucide-react'
 
 export default function SettingsPage() {
@@ -33,11 +34,13 @@ export default function SettingsPage() {
   const [budgetBulanan, setBudgetBulanan] = useState('')
   const [batasHarian, setBatasHarian] = useState('')
 
-  // Pos / Kantong Budget State
-  const [posMakan, setPosMakan] = useState('')
-  const [posRutin, setPosRutin] = useState('')
-  const [posUrgensi, setPosUrgensi] = useState('')
-  const [posLainnya, setPosLainnya] = useState('')
+  // Kustomisasi Kantong Budget State
+  const [kantongList, setKantongList] = useState(DEFAULT_KANTONG)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newNama, setNewNama] = useState('')
+  const [newIcon, setNewIcon] = useState('📦')
+  const [newAlokasi, setNewAlokasi] = useState('')
+  const [newIsDaily, setNewIsDaily] = useState(false)
 
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState('')
@@ -55,37 +58,125 @@ export default function SettingsPage() {
           ? formatNumberWithDots(profile.batas_harian)
           : ''
       )
-
-      const pb = profile.pos_budget || {}
-      setPosMakan(pb.makan && Number(pb.makan) > 0 ? formatNumberWithDots(pb.makan) : '')
-      setPosRutin(pb.rutin && Number(pb.rutin) > 0 ? formatNumberWithDots(pb.rutin) : '')
-      setPosUrgensi(pb.urgensi && Number(pb.urgensi) > 0 ? formatNumberWithDots(pb.urgensi) : '')
-      setPosLainnya(pb.lainnya && Number(pb.lainnya) > 0 ? formatNumberWithDots(pb.lainnya) : '')
+      const list = getKantongListFromProfile(profile)
+      setKantongList(
+        list.map((k) => ({
+          ...k,
+          _rawVal: k.alokasi ? formatNumberWithDots(k.alokasi) : '',
+        }))
+      )
     }
   }, [profile])
 
   const totalBudgetNum = parseFormattedNumber(budgetBulanan)
-  const totalPosNum =
-    parseFormattedNumber(posMakan) +
-    parseFormattedNumber(posRutin) +
-    parseFormattedNumber(posUrgensi) +
-    parseFormattedNumber(posLainnya)
+  const totalPosNum = kantongList.reduce(
+    (sum, k) => sum + (parseFormattedNumber(k._rawVal ?? k.alokasi) || 0),
+    0
+  )
 
   const handleAutoDivide = () => {
     if (totalBudgetNum <= 0) {
       alert('Masukkan Total Target Budget Bulanan terlebih dahulu!')
       return
     }
-    // Proporsi Mahasiswa: 50% Makan, 25% Rutin, 15% Urgensi, 10% Lainnya
-    const makan = Math.round((totalBudgetNum * 0.5) / 1000) * 1000
-    const rutin = Math.round((totalBudgetNum * 0.25) / 1000) * 1000
-    const urgensi = Math.round((totalBudgetNum * 0.15) / 1000) * 1000
-    const lainnya = totalBudgetNum - (makan + rutin + urgensi)
+    const n = kantongList.length
+    if (n === 0) return
 
-    setPosMakan(formatNumberWithDots(makan))
-    setPosRutin(formatNumberWithDots(rutin))
-    setPosUrgensi(formatNumberWithDots(urgensi))
-    setPosLainnya(formatNumberWithDots(lainnya))
+    // Jika ada kantong daily (makan), beri porsi lebih besar (40-50%)
+    const dailyIndex = kantongList.findIndex((k) => k.isDaily)
+    let updated = []
+
+    if (dailyIndex !== -1 && n > 1) {
+      const dailyPortion = Math.round((totalBudgetNum * 0.45) / 1000) * 1000
+      const remainingForOthers = totalBudgetNum - dailyPortion
+      const otherPortion = Math.floor(remainingForOthers / (n - 1) / 1000) * 1000
+
+      updated = kantongList.map((k, idx) => {
+        let alokasi = 0
+        if (idx === dailyIndex) {
+          alokasi = dailyPortion
+        } else if (idx === n - 1 && dailyIndex !== n - 1) {
+          alokasi = totalBudgetNum - (dailyPortion + otherPortion * (n - 2))
+        } else {
+          alokasi = otherPortion
+        }
+        return { ...k, alokasi, _rawVal: formatNumberWithDots(alokasi) }
+      })
+    } else {
+      const portion = Math.floor(totalBudgetNum / n / 1000) * 1000
+      updated = kantongList.map((k, idx) => {
+        const alokasi = idx === n - 1 ? totalBudgetNum - portion * (n - 1) : portion
+        return { ...k, alokasi, _rawVal: formatNumberWithDots(alokasi) }
+      })
+    }
+
+    setKantongList(updated)
+  }
+
+  const handleUpdateKantongAlokasi = (id, val) => {
+    const formatted = formatNumberWithDots(val)
+    setKantongList(
+      kantongList.map((k) =>
+        k.id === id
+          ? {
+              ...k,
+              alokasi: parseFormattedNumber(formatted),
+              _rawVal: formatted,
+            }
+          : k
+      )
+    )
+  }
+
+  const handleUpdateKantongNama = (id, newNamaVal) => {
+    setKantongList(
+      kantongList.map((k) => (k.id === id ? { ...k, nama: newNamaVal } : k))
+    )
+  }
+
+  const handleToggleDaily = (id) => {
+    setKantongList(
+      kantongList.map((k) => ({
+        ...k,
+        isDaily: k.id === id ? !k.isDaily : false,
+      }))
+    )
+  }
+
+  const handleDeleteKantong = (id) => {
+    if (kantongList.length <= 1) {
+      alert('Minimal harus ada 1 kantong budget!')
+      return
+    }
+    setKantongList(kantongList.filter((k) => k.id !== id))
+  }
+
+  const handleAddKantong = (e) => {
+    e.preventDefault()
+    if (!newNama.trim()) {
+      alert('Nama kantong tidak boleh kosong')
+      return
+    }
+    const newK = {
+      id: 'k_' + Date.now(),
+      nama: newNama.trim(),
+      icon: newIcon || '📦',
+      alokasi: parseFormattedNumber(newAlokasi) || 0,
+      _rawVal: newAlokasi ? formatNumberWithDots(newAlokasi) : '',
+      isDaily: newIsDaily,
+    }
+
+    let updated = [...kantongList]
+    if (newIsDaily) {
+      updated = updated.map((k) => ({ ...k, isDaily: false }))
+    }
+    updated.push(newK)
+
+    setKantongList(updated)
+    setNewNama('')
+    setNewAlokasi('')
+    setNewIsDaily(false)
+    setShowAddForm(false)
   }
 
   const handleSave = async (e) => {
@@ -93,18 +184,23 @@ export default function SettingsPage() {
     setSaving(true)
     setSuccess('')
     try {
+      const sanitizedKantong = kantongList.map((k) => ({
+        id: k.id,
+        nama: k.nama || 'Kantong',
+        icon: k.icon || '📦',
+        alokasi: parseFormattedNumber(k._rawVal ?? k.alokasi),
+        isDaily: Boolean(k.isDaily),
+      }))
+
       await updateProfile({
         nama_lengkap: namaLengkap,
         budget_bulanan: parseFormattedNumber(budgetBulanan),
         batas_harian: parseFormattedNumber(batasHarian),
         pos_budget: {
-          makan: parseFormattedNumber(posMakan),
-          rutin: parseFormattedNumber(posRutin),
-          urgensi: parseFormattedNumber(posUrgensi),
-          lainnya: parseFormattedNumber(posLainnya),
+          kantong_list: sanitizedKantong,
         },
       })
-      setSuccess('Pengaturan berhasil disimpan!')
+      setSuccess('Pengaturan dan kustomisasi kantong berhasil disimpan!')
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
       alert('Gagal update: ' + err.message)
@@ -212,161 +308,228 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Pos / Kantong Budget Card */}
+        {/* Pos / Kantong Budget Card (Kustomisasi) */}
         <Card className="border-primary/20">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <PieChart className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Pos / Kantong Budget (Metode Amplop)</CardTitle>
+                <CardTitle className="text-base">Pos / Kantong Budget (Amplop)</CardTitle>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAutoDivide}
-                className="text-xs h-7 gap-1"
-              >
-                <Sparkles className="h-3 w-3 text-amber-500" />
-                Bagi Otomatis (50/25/15/10)
-              </Button>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAutoDivide}
+                  className="text-xs h-8 gap-1"
+                >
+                  <Sparkles className="h-3 w-3 text-amber-500" />
+                  Bagi Otomatis
+                </Button>
+                <Button
+                  type="button"
+                  variant={showAddForm ? 'secondary' : 'default'}
+                  size="sm"
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className="text-xs h-8 gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  {showAddForm ? 'Tutup Form' : 'Tambah Kantong'}
+                </Button>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Bagi uangmu ke pos terpisah agar jatah makan harian tidak terpotong saat ada servis motor atau laundry.
+              Atur dan kustomisasi sendiri pos keuanganmu. Tandai satu kantong dengan icon bintang (⭐) sebagai tolok ukur batas harian (Safe-to-Spend).
             </p>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {/* 1. Makan */}
-            <div className="p-2.5 rounded-lg border bg-amber-50/40 border-amber-200/80">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-md bg-amber-100 text-amber-800">
-                    <Utensils className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold text-foreground">
-                      🍔 Makan & Jajan (Harian)
-                    </Label>
-                    <p className="text-[10px] text-muted-foreground">
-                      Makanan, warteg, ngopi, kuliner (Terhubung ke batas harian)
-                    </p>
-                  </div>
+          <CardContent className="space-y-3.5">
+            {/* Form Tambah Kantong Baru */}
+            {showAddForm && (
+              <div className="p-3.5 rounded-xl border border-primary/30 bg-primary/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Plus className="h-3.5 w-3.5 text-primary" /> Buat Kantong Baru
+                  </h4>
+                  <span className="text-[10px] text-muted-foreground">Kustomisasi sesukamu</span>
                 </div>
-              </div>
-              <div className="relative mt-1">
-                <span className="absolute left-3 top-2.5 text-sm font-semibold text-muted-foreground">
-                  Rp
-                </span>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  value={posMakan}
-                  onChange={(e) => setPosMakan(formatNumberWithDots(e.target.value))}
-                  placeholder="0"
-                  className="pl-10 text-sm font-bold bg-background"
-                />
-              </div>
-            </div>
 
-            {/* 2. Rutin */}
-            <div className="p-2.5 rounded-lg border bg-blue-50/40 border-blue-200/80">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-md bg-blue-100 text-blue-800">
-                    <Repeat className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold text-foreground">
-                      🛵 Kebutuhan Rutin & Kuliah
-                    </Label>
-                    <p className="text-[10px] text-muted-foreground">
-                      Bensin, laundry, kos/sewa, print tugas, pulsa/internet
-                    </p>
+                {/* Pilih Emoji */}
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Pilih Icon Emoji</Label>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {KANTONG_EMOJI_OPTIONS.map((em) => (
+                      <button
+                        key={em}
+                        type="button"
+                        onClick={() => setNewIcon(em)}
+                        className={`h-7 w-7 rounded-lg text-sm flex items-center justify-center border transition-all ${
+                          newIcon === em
+                            ? 'bg-primary/20 border-primary scale-110 shadow-xs'
+                            : 'bg-background hover:bg-muted border-border'
+                        }`}
+                      >
+                        {em}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </div>
-              <div className="relative mt-1">
-                <span className="absolute left-3 top-2.5 text-sm font-semibold text-muted-foreground">
-                  Rp
-                </span>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  value={posRutin}
-                  onChange={(e) => setPosRutin(formatNumberWithDots(e.target.value))}
-                  placeholder="0"
-                  className="pl-10 text-sm font-bold bg-background"
-                />
-              </div>
-            </div>
 
-            {/* 3. Urgensi */}
-            <div className="p-2.5 rounded-lg border bg-rose-50/40 border-rose-200/80">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-md bg-rose-100 text-rose-800">
-                    <ShieldAlert className="h-4 w-4" />
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <Label className="text-xs font-semibold text-foreground">
-                      🚨 Dana Urgensi & Darurat
-                    </Label>
-                    <p className="text-[10px] text-muted-foreground">
-                      Servis motor, tambal ban, obat/sakit, keperluan mendesak
-                    </p>
+                    <Label className="text-[11px] text-muted-foreground">Nama Kantong</Label>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-base p-1.5 bg-background border rounded-md">{newIcon}</span>
+                      <Input
+                        type="text"
+                        placeholder="mis: Skincare, Bensin, Ngopi..."
+                        value={newNama}
+                        onChange={(e) => setNewNama(e.target.value)}
+                        className="text-xs bg-background"
+                      />
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="relative mt-1">
-                <span className="absolute left-3 top-2.5 text-sm font-semibold text-muted-foreground">
-                  Rp
-                </span>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  value={posUrgensi}
-                  onChange={(e) => setPosUrgensi(formatNumberWithDots(e.target.value))}
-                  placeholder="0"
-                  className="pl-10 text-sm font-bold bg-background"
-                />
-              </div>
-            </div>
 
-            {/* 4. Lainnya */}
-            <div className="p-2.5 rounded-lg border bg-purple-50/40 border-purple-200/80">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-md bg-purple-100 text-purple-800">
-                    <ShoppingBag className="h-4 w-4" />
-                  </div>
                   <div>
-                    <Label className="text-xs font-semibold text-foreground">
-                      🛍️ Belanja & Lain-lain
-                    </Label>
-                    <p className="text-[10px] text-muted-foreground">
-                      Belanja keperluan pribadi & pengeluaran variatif
-                    </p>
+                    <Label className="text-[11px] text-muted-foreground">Alokasi Budget (Rp)</Label>
+                    <div className="relative mt-1">
+                      <span className="absolute left-2.5 top-2 text-xs font-semibold text-muted-foreground">
+                        Rp
+                      </span>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={newAlokasi}
+                        onChange={(e) => setNewAlokasi(formatNumberWithDots(e.target.value))}
+                        className="pl-8 text-xs font-semibold bg-background"
+                      />
+                    </div>
                   </div>
                 </div>
+
+                {/* Checkbox Tolok Ukur Harian */}
+                <div className="flex items-center justify-between p-2 rounded-lg bg-background border">
+                  <div className="flex items-center gap-2">
+                    <Star className={`h-4 w-4 ${newIsDaily ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
+                    <div>
+                      <p className="text-xs font-medium">Jadikan Tolok Ukur Batas Harian</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Jika aktif, pengeluaran harian hanya dihitung dari kantong ini.
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={newIsDaily}
+                    onChange={(e) => setNewIsDaily(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAddForm(false)}
+                    className="text-xs h-7"
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddKantong}
+                    className="text-xs h-7 gap-1"
+                  >
+                    <Plus className="h-3 w-3" /> Tambahkan
+                  </Button>
+                </div>
               </div>
-              <div className="relative mt-1">
-                <span className="absolute left-3 top-2.5 text-sm font-semibold text-muted-foreground">
-                  Rp
-                </span>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  value={posLainnya}
-                  onChange={(e) => setPosLainnya(formatNumberWithDots(e.target.value))}
-                  placeholder="0"
-                  className="pl-10 text-sm font-bold bg-background"
-                />
-              </div>
+            )}
+
+            {/* List Kantong yang Ada */}
+            <div className="space-y-2.5">
+              {kantongList.map((k) => (
+                <div
+                  key={k.id}
+                  className={`p-3 rounded-xl border transition-all ${
+                    k.isDaily
+                      ? 'bg-amber-50/50 border-amber-300/80 shadow-xs'
+                      : 'bg-card border-border hover:border-border/80'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                      <span className="text-lg p-1.5 rounded-lg bg-muted/80 border shrink-0">
+                        {k.icon || '📦'}
+                      </span>
+                      <Input
+                        type="text"
+                        value={k.nama}
+                        onChange={(e) => handleUpdateKantongNama(k.id, e.target.value)}
+                        placeholder="Nama Pos"
+                        className="text-xs font-semibold h-8 bg-background max-w-[220px]"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Button / Toggle Daily */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDaily(k.id)}
+                        className={`px-2 py-1 rounded-md text-[11px] font-medium border flex items-center gap-1 transition-all ${
+                          k.isDaily
+                            ? 'bg-amber-100 text-amber-800 border-amber-300 font-semibold'
+                            : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                        }`}
+                        title={k.isDaily ? 'Kantong ini adalah patokan batas harian' : 'Klik untuk jadikan patokan batas harian'}
+                      >
+                        <Star
+                          className={`h-3 w-3 ${
+                            k.isDaily ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'
+                          }`}
+                        />
+                        {k.isDaily ? 'Tolok Ukur Harian' : 'Set Harian'}
+                      </button>
+
+                      {/* Delete Button */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteKantong(k.id)}
+                        disabled={kantongList.length <= 1}
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        title="Hapus Kantong"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Input Alokasi */}
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-xs font-semibold text-muted-foreground">
+                      Rp
+                    </span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={k._rawVal !== undefined ? k._rawVal : formatNumberWithDots(k.alokasi)}
+                      onChange={(e) => handleUpdateKantongAlokasi(k.id, e.target.value)}
+                      placeholder="0"
+                      className="pl-9 text-xs font-bold bg-background h-8"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Status Alokasi Pos */}
             {totalPosNum > 0 && (
-              <div className="p-3 rounded-lg bg-muted/60 border text-xs space-y-1">
+              <div className="p-3 rounded-lg bg-muted/60 border text-xs space-y-1 mt-3">
                 <div className="flex justify-between font-medium">
                   <span>Total Terbagi ke Pos:</span>
                   <span className="font-bold text-foreground">{formatRupiah(totalPosNum)}</span>

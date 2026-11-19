@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/contexts/AuthContext'
-import { getStartOfMonth, getEndOfMonth, getKantongForKategori } from '@/lib/utils'
+import { useAuth, getKantongListFromProfile } from '@/contexts/AuthContext'
+import { getStartOfMonth, getEndOfMonth, getMatchingKantong } from '@/lib/utils'
 
 const GUEST_TX_KEY = 'dompetku_guest_tx'
 
@@ -41,7 +41,7 @@ const DEFAULT_GUEST_TX = [
 ]
 
 export function useTransactions() {
-  const { user, isGuest } = useAuth()
+  const { user, isGuest, profile } = useAuth()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState({
@@ -49,13 +49,15 @@ export function useTransactions() {
     totalPengeluaran: 0,
     saldo: 0,
     pengeluaranHariIni: 0,
-    pengeluaranPerKantong: { makan: 0, rutin: 0, urgensi: 0, lainnya: 0 },
-    pengeluaranMakanHariIni: 0,
+    pengeluaranPerKantong: {},
+    pengeluaranDailyHariIni: 0,
   })
 
-  const calcSummary = (data) => {
+  const calcSummary = useCallback((data) => {
     const today = new Date().toISOString().split('T')[0]
     const list = data || []
+    const kantongList = getKantongListFromProfile(profile)
+    const dailyKantong = kantongList.find((k) => k.isDaily) || kantongList[0]
 
     const totalPemasukan = list
       .filter((t) => t.tipe === 'pemasukan')
@@ -69,17 +71,23 @@ export function useTransactions() {
       .filter((t) => t.tipe === 'pengeluaran' && t.tanggal === today)
       .reduce((sum, t) => sum + Number(t.jumlah), 0)
 
-    const pengeluaranPerKantong = { makan: 0, rutin: 0, urgensi: 0, lainnya: 0 }
-    let pengeluaranMakanHariIni = 0
+    const pengeluaranPerKantong = {}
+    let pengeluaranDailyHariIni = 0
 
     list
       .filter((t) => t.tipe === 'pengeluaran')
       .forEach((t) => {
-        const kantong = getKantongForKategori(t.kategori)
         const amt = Number(t.jumlah) || 0
-        pengeluaranPerKantong[kantong.id] = (pengeluaranPerKantong[kantong.id] || 0) + amt
-        if (t.tanggal === today && kantong.id === 'makan') {
-          pengeluaranMakanHariIni += amt
+        const matchedPocket = t.kantong_id
+          ? kantongList.find((k) => k.id === t.kantong_id) || { id: t.kantong_id, isDaily: false }
+          : getMatchingKantong(t.kategori, kantongList)
+        const kId = matchedPocket?.id || dailyKantong?.id || 'k_makan'
+        pengeluaranPerKantong[kId] = (pengeluaranPerKantong[kId] || 0) + amt
+
+        // Jika transaksi terjadi hari ini dan berada di kantong daily
+        const isDailyPocket = matchedPocket?.isDaily || kId === dailyKantong?.id
+        if (t.tanggal === today && isDailyPocket) {
+          pengeluaranDailyHariIni += amt
         }
       })
 
@@ -89,9 +97,9 @@ export function useTransactions() {
       saldo: totalPemasukan - totalPengeluaran,
       pengeluaranHariIni,
       pengeluaranPerKantong,
-      pengeluaranMakanHariIni,
+      pengeluaranDailyHariIni,
     })
-  }
+  }, [profile])
 
   const fetchTransactions = useCallback(async () => {
     if (!user) return
@@ -131,13 +139,13 @@ export function useTransactions() {
     } finally {
       setLoading(false)
     }
-  }, [user, isGuest])
+  }, [user, isGuest, calcSummary])
 
   useEffect(() => {
     fetchTransactions()
   }, [fetchTransactions])
 
-  const addTransaction = async ({ tipe, jumlah, kategori, catatan, tanggal }) => {
+  const addTransaction = async ({ tipe, jumlah, kategori, catatan, tanggal, kantong_id }) => {
     if (!user) return
 
     if (isGuest) {
@@ -148,6 +156,7 @@ export function useTransactions() {
         kategori,
         catatan: catatan || '',
         tanggal: tanggal || new Date().toISOString().split('T')[0],
+        kantong_id: kantong_id || null,
       }
       const updated = [newTx, ...transactions]
       setTransactions(updated)
@@ -156,15 +165,34 @@ export function useTransactions() {
       return
     }
 
-    const { error } = await supabase.from('transactions').insert({
-      user_id: user.id,
-      tipe,
-      jumlah: Number(jumlah),
-      kategori,
-      catatan: catatan || '',
-      tanggal: tanggal || new Date().toISOString().split('T')[0],
-    })
-    if (error) throw error
+    try {
+      // Coba simpan dengan kantong_id jika kolom sudah ada di Supabase
+      const payload = {
+        user_id: user.id,
+        tipe,
+        jumlah: Number(jumlah),
+        kategori,
+        catatan: catatan || '',
+        tanggal: tanggal || new Date().toISOString().split('T')[0],
+      }
+      if (kantong_id) {
+        payload.kantong_id = kantong_id
+      }
+      const { error } = await supabase.from('transactions').insert(payload)
+      if (error) {
+        // Jika error kolom kantong_id belum ada, fallback tanpa kantong_id
+        if (payload.kantong_id) {
+          delete payload.kantong_id
+          const { error: fallbackError } = await supabase.from('transactions').insert(payload)
+          if (fallbackError) throw fallbackError
+        } else {
+          throw error
+        }
+      }
+    } catch (err) {
+      console.warn('addTransaction error:', err)
+      throw err
+    }
     await fetchTransactions()
   }
 

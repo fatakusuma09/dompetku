@@ -28,10 +28,14 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   tipe TEXT NOT NULL CHECK (tipe IN ('pemasukan', 'pengeluaran')),
   jumlah NUMERIC(12, 2) NOT NULL CHECK (jumlah > 0),
   kategori TEXT NOT NULL,
+  kantong_id TEXT,
   catatan TEXT DEFAULT '',
   tanggal DATE DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Pastikan kolom kantong_id ada jika tabel sudah pernah dibuat sebelumnya
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS kantong_id TEXT;
 
 -- 3. Tabel Debts (hutang piutang)
 CREATE TABLE IF NOT EXISTS public.debts (

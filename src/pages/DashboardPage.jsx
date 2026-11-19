@@ -2,13 +2,12 @@ import { Link } from 'react-router-dom'
 import { useTransactions } from '@/hooks/useTransactions'
 import { useDebts } from '@/hooks/useDebts'
 import { useSavingsGoals } from '@/hooks/useSavingsGoals'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth, getKantongListFromProfile } from '@/contexts/AuthContext'
 import {
   formatRupiah,
   formatTanggal,
   getRemainingDays,
   getDayProgress,
-  KANTONG_CONFIG,
 } from '@/lib/utils'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -40,16 +39,17 @@ export default function DashboardPage() {
   const budgetBulanan = Number(profile?.budget_bulanan || 0)
   const batasHarianManual = Number(profile?.batas_harian || 0)
 
-  // Pos / Kantong Budget Logic
-  const posBudget = profile?.pos_budget || {}
-  const isPosMakanActive = Number(posBudget?.makan || 0) > 0
-  const budgetMakan = Number(posBudget?.makan || 0)
-  const pengeluaranMakanTotal = Number(summary.pengeluaranPerKantong?.makan || 0)
-  const sisaBudgetMakan = budgetMakan - pengeluaranMakanTotal
+  // Pos / Kantong Budget Logic (Kustomisasi Dinamis)
+  const kantongList = getKantongListFromProfile(profile)
+  const dailyKantong = kantongList.find((k) => k.isDaily) || kantongList[0]
+  const hasDailyPocket = Boolean(dailyKantong && Number(dailyKantong.alokasi) > 0)
+  const budgetDailyPocket = Number(dailyKantong?.alokasi || 0)
+  const pengeluaranDailyTotal = Number(summary.pengeluaranPerKantong?.[dailyKantong?.id] || 0)
+  const sisaDailyPocket = budgetDailyPocket - pengeluaranDailyTotal
 
   const isManualLimit = batasHarianManual > 0
-  const sisaBudget = isPosMakanActive
-    ? Math.max(sisaBudgetMakan, 0)
+  const sisaBudget = hasDailyPocket
+    ? Math.max(sisaDailyPocket, 0)
     : budgetBulanan > 0
     ? budgetBulanan - summary.totalPengeluaran
     : summary.saldo
@@ -57,9 +57,9 @@ export default function DashboardPage() {
   const batasHarianOtomatis = Math.max(Math.floor(sisaBudget / remainingDays), 0)
   const batasHarian = isManualLimit ? batasHarianManual : batasHarianOtomatis
 
-  // Pengeluaran hari ini: jika pos makan aktif, hitung khusus makan hari ini agar servis/laundry tidak memotong batas harian makan
-  const pengeluaranHariIni = isPosMakanActive
-    ? summary.pengeluaranMakanHariIni || 0
+  // Pengeluaran hari ini: gunakan pengeluaranDailyHariIni jika kantong harian aktif
+  const pengeluaranHariIni = hasDailyPocket
+    ? summary.pengeluaranDailyHariIni || 0
     : summary.pengeluaranHariIni || 0
 
   const sisaHariIni = Math.max(batasHarian - pengeluaranHariIni, 0)
@@ -167,7 +167,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2">
                 <PiggyBank className={`h-5 w-5 ${isOverDailyLimit ? 'text-destructive' : 'text-primary'}`} />
                 <h3 className="font-semibold text-sm">
-                  {isPosMakanActive ? 'Batas Harian (Khusus Makan)' : 'Batas Pengeluaran Harian'}
+                  {hasDailyPocket ? `Batas Harian (${dailyKantong.icon} ${dailyKantong.nama})` : 'Batas Pengeluaran Harian'}
                 </h3>
               </div>
               <div className="flex items-center gap-1.5">
@@ -221,8 +221,8 @@ export default function DashboardPage() {
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-2">
               <Calendar className="h-3.5 w-3.5 shrink-0" />
               <span>
-                {isPosMakanActive
-                  ? `🍔 Khusus jatah makan: sisa budget makan dibagi ${remainingDays} hari (servis & bensin aman!)`
+                {hasDailyPocket
+                  ? `${dailyKantong.icon} Khusus pos ${dailyKantong.nama}: sisa budget dibagi ${remainingDays} hari (pos lain aman terpisah!)`
                   : isManualLimit
                   ? `Limit kustom aktif • Sisa ${remainingDays} hari lagi di bulan ini`
                   : `Dihitung otomatis: sisa dana dibagi ${remainingDays} hari`}
@@ -382,9 +382,9 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
-            {KANTONG_CONFIG.map((k) => {
-              const alokasi = Number(posBudget[k.id] || 0)
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+            {kantongList.map((k) => {
+              const alokasi = Number(k.alokasi || 0)
               const terpakai = Number(summary.pengeluaranPerKantong?.[k.id] || 0)
               const sisa = alokasi > 0 ? alokasi - terpakai : 0
               const pct = alokasi > 0 ? Math.min(Math.round((terpakai / alokasi) * 100), 100) : 0
@@ -396,24 +396,36 @@ export default function DashboardPage() {
                   className={`p-3 rounded-xl border text-xs space-y-2 transition-all ${
                     isOver
                       ? 'bg-red-50/50 border-red-200'
+                      : k.isDaily
+                      ? 'bg-amber-50/30 border-amber-200/80 shadow-xs'
                       : alokasi > 0
                       ? 'bg-card border-border shadow-xs'
                       : 'bg-muted/40 border-dashed border-border'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-foreground text-xs">{k.nama}</span>
-                    <span
-                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        isOver
-                          ? 'bg-red-100 text-red-700'
-                          : alokasi > 0
-                          ? 'bg-primary/10 text-primary'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {alokasi > 0 ? `${pct}%` : 'Belum diatur'}
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="font-semibold text-foreground text-xs flex items-center gap-1.5 truncate">
+                      <span className="text-base shrink-0">{k.icon || '📦'}</span>
+                      <span className="truncate">{k.nama}</span>
                     </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {k.isDaily && (
+                        <span className="text-[9px] bg-amber-100 text-amber-800 border border-amber-300 px-1 py-0.2 rounded font-medium">
+                          ⭐ Harian
+                        </span>
+                      )}
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          isOver
+                            ? 'bg-red-100 text-red-700'
+                            : alokasi > 0
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {alokasi > 0 ? `${pct}%` : 'Belum diatur'}
+                      </span>
+                    </div>
                   </div>
 
                   <div>

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTransactions } from '@/hooks/useTransactions'
+import { useAuth, getKantongListFromProfile } from '@/contexts/AuthContext'
 import {
   formatRupiah,
   formatTanggal,
@@ -7,7 +8,7 @@ import {
   parseFormattedNumber,
   KATEGORI_PEMASUKAN,
   KATEGORI_PENGELUARAN,
-  getKantongForKategori,
+  getMatchingKantong,
 } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,9 @@ import {
 } from 'lucide-react'
 
 export default function TransactionsPage() {
+  const { profile } = useAuth()
+  const kantongList = getKantongListFromProfile(profile)
+
   const {
     transactions,
     loading,
@@ -35,6 +39,7 @@ export default function TransactionsPage() {
   const [tipe, setTipe] = useState('pengeluaran')
   const [jumlah, setJumlah] = useState('')
   const [kategori, setKategori] = useState(KATEGORI_PENGELUARAN[0])
+  const [selectedKantongId, setSelectedKantongId] = useState('')
   const [catatan, setCatatan] = useState('')
   const [tanggal, setTanggal] = useState(
     new Date().toISOString().split('T')[0]
@@ -45,12 +50,31 @@ export default function TransactionsPage() {
   const categories =
     tipe === 'pemasukan' ? KATEGORI_PEMASUKAN : KATEGORI_PENGELUARAN
 
+  // Auto-sync kantong id saat kategori berubah
+  const handleCategorySelect = (cat) => {
+    setKategori(cat)
+    if (tipe === 'pengeluaran') {
+      const match = getMatchingKantong(cat, kantongList)
+      if (match) setSelectedKantongId(match.id)
+    }
+  }
+
   const handleTipeChange = (newTipe) => {
     setTipe(newTipe)
-    setKategori(
-      newTipe === 'pemasukan' ? KATEGORI_PEMASUKAN[0] : KATEGORI_PENGELUARAN[0]
-    )
+    const initialCat = newTipe === 'pemasukan' ? KATEGORI_PEMASUKAN[0] : KATEGORI_PENGELUARAN[0]
+    setKategori(initialCat)
+    if (newTipe === 'pengeluaran') {
+      const match = getMatchingKantong(initialCat, kantongList)
+      if (match) setSelectedKantongId(match.id)
+    }
   }
+
+  useEffect(() => {
+    if (!selectedKantongId && kantongList.length > 0 && tipe === 'pengeluaran') {
+      const match = getMatchingKantong(kategori, kantongList)
+      setSelectedKantongId(match?.id || kantongList[0].id)
+    }
+  }, [kantongList, kategori, tipe, selectedKantongId])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -68,6 +92,10 @@ export default function TransactionsPage() {
         kategori,
         catatan,
         tanggal,
+        kantong_id:
+          tipe === 'pengeluaran'
+            ? selectedKantongId || getMatchingKantong(kategori, kantongList)?.id
+            : null,
       })
       setJumlah('')
       setCatatan('')
@@ -83,6 +111,11 @@ export default function TransactionsPage() {
     if (filter === 'pengeluaran') return tx.tipe === 'pengeluaran'
     return true
   })
+
+  // Cari kantong aktif yang terpilih untuk info badge
+  const activeKantong =
+    kantongList.find((k) => k.id === selectedKantongId) ||
+    getMatchingKantong(kategori, kantongList)
 
   return (
     <div className="space-y-5">
@@ -148,13 +181,11 @@ export default function TransactionsPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <Label className="text-xs text-muted-foreground">Kategori</Label>
-                {tipe === 'pengeluaran' && (
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded-md font-medium border ${
-                      getKantongForKategori(kategori).badgeColor
-                    }`}
-                  >
-                    Masuk Pos: {getKantongForKategori(kategori).nama}
+                {tipe === 'pengeluaran' && activeKantong && (
+                  <span className="text-[11px] px-2 py-0.5 rounded-md font-medium border bg-muted/60 flex items-center gap-1">
+                    <span>Pos:</span>
+                    <span>{activeKantong.icon}</span>
+                    <span className="font-semibold text-foreground">{activeKantong.nama}</span>
                   </span>
                 )}
               </div>
@@ -163,7 +194,7 @@ export default function TransactionsPage() {
                   <button
                     key={c}
                     type="button"
-                    onClick={() => setKategori(c)}
+                    onClick={() => handleCategorySelect(c)}
                     className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
                       kategori === c
                         ? 'bg-primary text-primary-foreground border-primary font-medium shadow-xs'
@@ -175,6 +206,42 @@ export default function TransactionsPage() {
                 ))}
               </div>
             </div>
+
+            {/* Pos / Kantong Selector (Khusus Pengeluaran) */}
+            {tipe === 'pengeluaran' && kantongList.length > 0 && (
+              <div className="pt-2 border-t">
+                <div className="flex items-center justify-between mb-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Bebankan ke Pos / Kantong Budget
+                  </Label>
+                  <span className="text-[10px] text-muted-foreground">
+                    Bisa dialihkan ke pos lain
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {kantongList.map((k) => (
+                    <button
+                      key={k.id}
+                      type="button"
+                      onClick={() => setSelectedKantongId(k.id)}
+                      className={`px-2.5 py-1 text-xs rounded-lg border flex items-center gap-1.5 transition-all ${
+                        selectedKantongId === k.id
+                          ? 'bg-primary text-primary-foreground border-primary font-semibold shadow-xs'
+                          : 'bg-background hover:bg-muted text-foreground border-border'
+                      }`}
+                    >
+                      <span>{k.icon || '📦'}</span>
+                      <span>{k.nama}</span>
+                      {k.isDaily && (
+                        <span className="text-[9px] bg-amber-200/50 text-amber-900 dark:text-amber-200 px-1 py-0.2 rounded font-medium">
+                          Harian
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Catatan & Tanggal Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -248,71 +315,76 @@ export default function TransactionsPage() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {filtered.map((tx) => (
-              <Card key={tx.id} className="hover:border-primary/30 transition-colors">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                      tx.tipe === 'pemasukan'
-                        ? 'bg-emerald-100'
-                        : 'bg-red-100'
-                    }`}
-                  >
-                    {tx.tipe === 'pemasukan' ? (
-                      <TrendingUp className="h-4 w-4 text-emerald-600" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4 text-red-600" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-sm font-medium">{tx.kategori}</span>
-                      {tx.tipe === 'pengeluaran' ? (
-                        <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded border font-medium ${
-                            getKantongForKategori(tx.kategori).badgeColor
-                          }`}
-                        >
-                          {getKantongForKategori(tx.kategori).nama}
-                        </span>
-                      ) : (
-                        <Badge variant="outline" className="text-[10px] py-0 px-1.5">
-                          {tx.tipe}
-                        </Badge>
-                      )}
-                    </div>
-                    {tx.catatan && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {tx.catatan}
-                      </p>
-                    )}
-                    <p className="text-[10px] text-muted-foreground">
-                      {formatTanggal(tx.tanggal)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <p
-                      className={`text-sm font-semibold ${
-                        tx.tipe === 'pemasukan'
-                          ? 'text-emerald-600'
-                          : 'text-red-600'
+            {filtered.map((tx) => {
+              const txKantong =
+                tx.tipe === 'pengeluaran'
+                  ? tx.kantong_id
+                    ? kantongList.find((k) => k.id === tx.kantong_id) || {
+                        nama: tx.kategori,
+                        icon: '📦',
+                      }
+                    : getMatchingKantong(tx.kategori, kantongList)
+                  : null
+
+              return (
+                <Card key={tx.id} className="hover:border-primary/30 transition-colors">
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                        tx.tipe === 'pemasukan' ? 'bg-emerald-100' : 'bg-red-100'
                       }`}
                     >
-                      {tx.tipe === 'pemasukan' ? '+' : '-'}
-                      {formatRupiah(tx.jumlah)}
-                    </p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteTransaction(tx.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      {tx.tipe === 'pemasukan' ? (
+                        <TrendingUp className="h-4 w-4 text-emerald-600" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4 text-red-600" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-medium">{tx.kategori}</span>
+                        {tx.tipe === 'pengeluaran' ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded border bg-muted/70 font-medium flex items-center gap-1">
+                            <span>{txKantong?.icon || '📦'}</span>
+                            <span>{txKantong?.nama || tx.kategori}</span>
+                          </span>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                            {tx.tipe}
+                          </Badge>
+                        )}
+                      </div>
+                      {tx.catatan && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {tx.catatan}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground">
+                        {formatTanggal(tx.tanggal)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <p
+                        className={`text-sm font-semibold ${
+                          tx.tipe === 'pemasukan' ? 'text-emerald-600' : 'text-red-600'
+                        }`}
+                      >
+                        {tx.tipe === 'pemasukan' ? '+' : '-'}
+                        {formatRupiah(tx.jumlah)}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => deleteTransaction(tx.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         )}
       </div>

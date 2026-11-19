@@ -68,45 +68,59 @@ export const KATEGORI_PEMASUKAN = [
   'Lainnya',
 ]
 
-export const KANTONG_CONFIG = [
+export const KANTONG_EMOJI_OPTIONS = [
+  '🍔',
+  '🛵',
+  '🧺',
+  '🚨',
+  '☕',
+  '🏠',
+  '📚',
+  '👕',
+  '🎮',
+  '💊',
+  '🎬',
+  '🛍️',
+  '💡',
+  '💰',
+  '🏋️',
+  '✈️',
+]
+
+export const DEFAULT_KANTONG = [
   {
-    id: 'makan',
-    nama: 'Makan & Jajan',
-    deskripsi: 'Jatah makan harian, warteg, ngopi, kuliner',
-    kategori: ['Makanan', 'Nongkrong'],
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-500',
-    badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
+    id: 'k_makan',
+    nama: 'Makan & Minum',
+    icon: '🍔',
+    alokasi: 750000,
     isDaily: true,
   },
   {
-    id: 'rutin',
-    nama: 'Kebutuhan Rutin',
-    deskripsi: 'Bensin, laundry, kos, print tugas, pulsa',
-    kategori: ['Bensin / Transport', 'Transport', 'Laundry', 'Kos/Sewa', 'Print/Tugas', 'Pulsa/Internet'],
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-500',
-    badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
+    id: 'k_motor',
+    nama: 'Bensin & Servis Motor',
+    icon: '🛵',
+    alokasi: 300000,
     isDaily: false,
   },
   {
-    id: 'urgensi',
-    nama: 'Dana Urgensi',
-    deskripsi: 'Servis motor, tambal ban, obat, keadaan mendesak',
-    kategori: ['Servis Motor', 'Dana Urgensi / Darurat'],
-    color: 'text-rose-600',
-    bgColor: 'bg-rose-500',
-    badgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
+    id: 'k_laundry',
+    nama: 'Laundry & Kebersihan',
+    icon: '🧺',
+    alokasi: 150000,
     isDaily: false,
   },
   {
-    id: 'lainnya',
-    nama: 'Belanja & Lainnya',
-    deskripsi: 'Belanja pribadi, hiburan, & pengeluaran variatif',
-    kategori: ['Belanja', 'Lainnya'],
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-500',
-    badgeColor: 'bg-purple-100 text-purple-800 border-purple-200',
+    id: 'k_urgensi',
+    nama: 'Dana Urgensi & Darurat',
+    icon: '🚨',
+    alokasi: 200000,
+    isDaily: false,
+  },
+  {
+    id: 'k_hiburan',
+    nama: 'Nongkrong & Hiburan',
+    icon: '☕',
+    alokasi: 100000,
     isDaily: false,
   },
 ]
@@ -125,19 +139,76 @@ export const KATEGORI_PENGELUARAN = [
   'Lainnya',
 ]
 
-export function getKantongForKategori(kategoriName) {
+export function getMatchingKantong(kategoriName, customKantongList) {
+  const list =
+    Array.isArray(customKantongList) && customKantongList.length > 0
+      ? customKantongList
+      : DEFAULT_KANTONG
   const name = (kategoriName || '').toLowerCase()
-  for (const kantong of KANTONG_CONFIG) {
-    if (
-      kantong.kategori.some(
-        (k) =>
-          k.toLowerCase() === name ||
-          name.includes(k.toLowerCase()) ||
-          k.toLowerCase().includes(name)
-      )
-    ) {
-      return kantong
-    }
+
+  // 1. Cek kecocokan kata kunci
+  if (
+    name.includes('makan') ||
+    name.includes('kuliner') ||
+    name.includes('nasi') ||
+    name.includes('warteg')
+  ) {
+    const found = list.find((k) => k.isDaily || k.nama.toLowerCase().includes('makan'))
+    if (found) return found
   }
-  return KANTONG_CONFIG[3]
+
+  if (
+    name.includes('bensin') ||
+    name.includes('transport') ||
+    name.includes('motor') ||
+    name.includes('kendaraan')
+  ) {
+    const found = list.find(
+      (k) =>
+        k.nama.toLowerCase().includes('bensin') ||
+        k.nama.toLowerCase().includes('motor') ||
+        k.nama.toLowerCase().includes('transport') ||
+        k.nama.toLowerCase().includes('rutin')
+    )
+    if (found) return found
+  }
+
+  if (name.includes('laundry')) {
+    const found = list.find((k) => k.nama.toLowerCase().includes('laundry'))
+    if (found) return found
+  }
+
+  if (
+    name.includes('urgensi') ||
+    name.includes('darurat') ||
+    name.includes('servis') ||
+    name.includes('obat') ||
+    name.includes('sakit')
+  ) {
+    const found = list.find(
+      (k) =>
+        k.nama.toLowerCase().includes('urgensi') ||
+        k.nama.toLowerCase().includes('darurat')
+    )
+    if (found) return found
+  }
+
+  if (
+    name.includes('nongkrong') ||
+    name.includes('kopi') ||
+    name.includes('hiburan') ||
+    name.includes('belanja')
+  ) {
+    const found = list.find(
+      (k) =>
+        k.nama.toLowerCase().includes('nongkrong') ||
+        k.nama.toLowerCase().includes('hiburan') ||
+        k.nama.toLowerCase().includes('belanja') ||
+        k.nama.toLowerCase().includes('santai')
+    )
+    if (found) return found
+  }
+
+  // 2. Fallback: jika tidak cocok kata kunci, gunakan kantong pertama
+  return list[0]
 }

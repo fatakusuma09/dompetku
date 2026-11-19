@@ -1,9 +1,29 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { DEFAULT_KANTONG } from '@/lib/utils'
 
 const AuthContext = createContext(null)
 
 const GUEST_STORAGE_KEY = 'dompetku_guest'
+
+export const getKantongListFromProfile = (prof) => {
+  const pb = prof?.pos_budget
+  if (Array.isArray(pb?.kantong_list)) {
+    return pb.kantong_list
+  }
+  if (Array.isArray(pb)) {
+    return pb
+  }
+  if (pb && typeof pb === 'object' && (pb.makan || pb.rutin || pb.urgensi || pb.lainnya)) {
+    return [
+      { id: 'k_makan', nama: 'Makan & Minum', icon: '🍔', alokasi: Number(pb.makan || 0), isDaily: true },
+      { id: 'k_motor', nama: 'Bensin & Servis', icon: '🛵', alokasi: Number(pb.rutin || 0), isDaily: false },
+      { id: 'k_urgensi', nama: 'Dana Urgensi / Darurat', icon: '🚨', alokasi: Number(pb.urgensi || 0), isDaily: false },
+      { id: 'k_lainnya', nama: 'Belanja & Lainnya', icon: '🛍️', alokasi: Number(pb.lainnya || 0), isDaily: false },
+    ]
+  }
+  return DEFAULT_KANTONG
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -19,7 +39,7 @@ export function AuthProvider({ children }) {
           nama_lengkap: 'Pengguna',
           budget_bulanan: 1500000,
           batas_harian: 50000,
-          pos_budget: { makan: 700000, rutin: 400000, urgensi: 250000, lainnya: 150000 },
+          pos_budget: { kantong_list: DEFAULT_KANTONG },
         })
         return
       }
@@ -35,7 +55,10 @@ export function AuthProvider({ children }) {
       if (data) {
         setProfile({
           ...data,
-          pos_budget: data.pos_budget || { makan: 0, rutin: 0, urgensi: 0, lainnya: 0 },
+          pos_budget: {
+            ...data.pos_budget,
+            kantong_list: getKantongListFromProfile(data),
+          },
         })
       } else {
         // Jika profil belum ada, inisialisasi default
@@ -44,7 +67,7 @@ export function AuthProvider({ children }) {
           nama_lengkap: user?.user_metadata?.full_name || 'Pengguna',
           budget_bulanan: 0,
           batas_harian: 0,
-          pos_budget: { makan: 0, rutin: 0, urgensi: 0, lainnya: 0 },
+          pos_budget: { kantong_list: DEFAULT_KANTONG },
         })
       }
     } catch (err) {
@@ -54,7 +77,7 @@ export function AuthProvider({ children }) {
         nama_lengkap: 'Pengguna',
         budget_bulanan: 0,
         batas_harian: 0,
-        pos_budget: { makan: 0, rutin: 0, urgensi: 0, lainnya: 0 },
+        pos_budget: { kantong_list: DEFAULT_KANTONG },
       })
     }
   }
@@ -137,7 +160,7 @@ export function AuthProvider({ children }) {
         nama_lengkap: 'Mahasiswa Tamu',
         budget_bulanan: 1500000,
         batas_harian: 50000,
-        pos_budget: { makan: 700000, rutin: 400000, urgensi: 250000, lainnya: 150000 },
+        pos_budget: { kantong_list: DEFAULT_KANTONG },
       },
     }
     localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guestData))
