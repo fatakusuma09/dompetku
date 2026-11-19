@@ -3,6 +3,8 @@ import { useTransactions } from '@/hooks/useTransactions'
 import {
   formatRupiah,
   formatTanggal,
+  formatNumberWithDots,
+  parseFormattedNumber,
   KATEGORI_PEMASUKAN,
   KATEGORI_PENGELUARAN,
 } from '@/lib/utils'
@@ -51,12 +53,17 @@ export default function TransactionsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!jumlah || Number(jumlah) <= 0) return
+    const numericJumlah = parseFormattedNumber(jumlah)
+    if (!numericJumlah || numericJumlah <= 0) {
+      alert('Masukkan nominal yang valid')
+      return
+    }
+
     setSubmitting(true)
     try {
       await addTransaction({
         tipe,
-        jumlah,
+        jumlah: numericJumlah,
         kategori,
         catatan,
         tanggal,
@@ -125,13 +132,13 @@ export default function TransactionsPage() {
                   Rp
                 </span>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="0"
                   value={jumlah}
-                  onChange={(e) => setJumlah(e.target.value)}
+                  onChange={(e) => setJumlah(formatNumberWithDots(e.target.value))}
                   className="pl-10 text-lg font-bold"
                   required
-                  min="1"
                 />
               </div>
             </div>

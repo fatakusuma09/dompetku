@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { formatRupiah } from '@/lib/utils'
+import { formatRupiah, formatNumberWithDots, parseFormattedNumber } from '@/lib/utils'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,8 +20,8 @@ export default function SettingsPage() {
   useEffect(() => {
     if (profile) {
       setNamaLengkap(profile.nama_lengkap || '')
-      setBudgetBulanan(profile.budget_bulanan ? String(profile.budget_bulanan) : '0')
-      setBatasHarian(profile.batas_harian ? String(profile.batas_harian) : '0')
+      setBudgetBulanan(profile.budget_bulanan ? formatNumberWithDots(profile.budget_bulanan) : '0')
+      setBatasHarian(profile.batas_harian ? formatNumberWithDots(profile.batas_harian) : '0')
     }
   }, [profile])
 
@@ -32,8 +32,8 @@ export default function SettingsPage() {
     try {
       await updateProfile({
         nama_lengkap: namaLengkap,
-        budget_bulanan: Number(budgetBulanan) || 0,
-        batas_harian: Number(batasHarian) || 0,
+        budget_bulanan: parseFormattedNumber(budgetBulanan),
+        batas_harian: parseFormattedNumber(batasHarian),
       })
       setSuccess('Pengaturan berhasil disimpan!')
       setTimeout(() => setSuccess(''), 3000)
@@ -106,12 +106,12 @@ export default function SettingsPage() {
                   Rp
                 </span>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={budgetBulanan}
-                  onChange={(e) => setBudgetBulanan(e.target.value)}
+                  onChange={(e) => setBudgetBulanan(formatNumberWithDots(e.target.value))}
                   placeholder="0"
                   className="pl-10 text-base font-bold"
-                  min="0"
                 />
               </div>
               <p className="text-[11px] text-muted-foreground mt-1.5">
@@ -128,12 +128,12 @@ export default function SettingsPage() {
                   Rp
                 </span>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={batasHarian}
-                  onChange={(e) => setBatasHarian(e.target.value)}
+                  onChange={(e) => setBatasHarian(formatNumberWithDots(e.target.value))}
                   placeholder="0"
                   className="pl-10 text-base font-bold"
-                  min="0"
                 />
               </div>
               <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">

@@ -239,6 +239,9 @@ export default function LoginPage() {
               </svg>
               Masuk dengan Google
             </Button>
+            <p className="text-[10px] text-center text-muted-foreground mt-2">
+              (Jika Google Login belum diaktifkan di Supabase, gunakan form Email di atas)
+            </p>
           </CardContent>
           <CardFooter className="justify-center pt-0">
             <button

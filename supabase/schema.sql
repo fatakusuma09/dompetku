@@ -1,8 +1,8 @@
 -- ============================================
--- DompetKampus - Supabase SQL Schema
+-- DompetKu - Supabase SQL Schema (Full & Idempotent)
 -- ============================================
--- Jalankan SQL ini di Supabase SQL Editor
--- (Dashboard > SQL Editor > New Query)
+-- Jalankan seluruh isi file ini di Supabase SQL Editor:
+-- Dashboard > SQL Editor > New Query > Paste > Run
 -- ============================================
 
 -- 1. Tabel Profiles (ekstensi dari auth.users)
@@ -11,9 +11,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   nama_lengkap TEXT,
   avatar_url TEXT,
   budget_bulanan NUMERIC(12, 2) DEFAULT 0,
+  batas_harian NUMERIC(12, 2) DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Pastikan kolom batas_harian ada jika tabel sudah pernah dibuat sebelumnya
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS batas_harian NUMERIC(12, 2) DEFAULT 0;
 
 -- 2. Tabel Transactions (pemasukan & pengeluaran)
 CREATE TABLE IF NOT EXISTS public.transactions (
@@ -56,6 +60,19 @@ CREATE TABLE IF NOT EXISTS public.savings_goals (
 );
 
 -- ============================================
+-- PERMISSIONS (GRANT)
+-- Memberikan hak akses penuh ke role authenticated & anon
+-- ============================================
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
+
+-- ============================================
 -- INDEXES untuk performa query
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON public.transactions(user_id);
@@ -67,20 +84,22 @@ CREATE INDEX IF NOT EXISTS idx_savings_user_id ON public.savings_goals(user_id);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
--- Data hanya bisa diakses oleh pemiliknya
 -- ============================================
 
 -- Profiles RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile"
   ON public.profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id)
@@ -89,19 +108,23 @@ CREATE POLICY "Users can update own profile"
 -- Transactions RLS
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own transactions" ON public.transactions;
 CREATE POLICY "Users can view own transactions"
   ON public.transactions FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own transactions" ON public.transactions;
 CREATE POLICY "Users can insert own transactions"
   ON public.transactions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own transactions" ON public.transactions;
 CREATE POLICY "Users can update own transactions"
   ON public.transactions FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own transactions" ON public.transactions;
 CREATE POLICY "Users can delete own transactions"
   ON public.transactions FOR DELETE
   USING (auth.uid() = user_id);
@@ -109,19 +132,23 @@ CREATE POLICY "Users can delete own transactions"
 -- Debts RLS
 ALTER TABLE public.debts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own debts" ON public.debts;
 CREATE POLICY "Users can view own debts"
   ON public.debts FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own debts" ON public.debts;
 CREATE POLICY "Users can insert own debts"
   ON public.debts FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own debts" ON public.debts;
 CREATE POLICY "Users can update own debts"
   ON public.debts FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own debts" ON public.debts;
 CREATE POLICY "Users can delete own debts"
   ON public.debts FOR DELETE
   USING (auth.uid() = user_id);
@@ -129,25 +156,29 @@ CREATE POLICY "Users can delete own debts"
 -- Savings Goals RLS
 ALTER TABLE public.savings_goals ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own savings goals" ON public.savings_goals;
 CREATE POLICY "Users can view own savings goals"
   ON public.savings_goals FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own savings goals" ON public.savings_goals;
 CREATE POLICY "Users can insert own savings goals"
   ON public.savings_goals FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own savings goals" ON public.savings_goals;
 CREATE POLICY "Users can update own savings goals"
   ON public.savings_goals FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own savings goals" ON public.savings_goals;
 CREATE POLICY "Users can delete own savings goals"
   ON public.savings_goals FOR DELETE
   USING (auth.uid() = user_id);
 
 -- ============================================
--- FUNCTION: Auto-create profile on signup
+-- FUNCTION & TRIGGER: Auto-create profile on signup
 -- ============================================
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -157,29 +188,13 @@ BEGIN
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', ''),
     COALESCE(NEW.raw_user_meta_data->>'avatar_url', '')
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger: jalankan saat user baru mendaftar
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- ============================================
--- PERMISSIONS (GRANT)
--- Memberikan izin akses tabel ke role Supabase
--- ============================================
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated;
-
--- Migration: Tambah kolom batas_harian jika belum ada
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS batas_harian NUMERIC(12, 2) DEFAULT 0;

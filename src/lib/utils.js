@@ -8,12 +8,28 @@ export function cn(...inputs) {
 }
 
 export function formatRupiah(amount) {
+  const num = Number(amount) || 0
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount)
+  }).format(num)
+}
+
+// Ubah "60000" jadi "60.000" saat mengetik
+export function formatNumberWithDots(val) {
+  if (val === undefined || val === null || val === '') return ''
+  const cleanNumber = String(val).replace(/\D/g, '')
+  if (!cleanNumber) return ''
+  return new Intl.NumberFormat('id-ID').format(Number(cleanNumber))
+}
+
+// Ubah "60.000" kembali jadi angka murni 60000
+export function parseFormattedNumber(val) {
+  if (!val) return 0
+  const clean = String(val).replace(/\D/g, '')
+  return Number(clean) || 0
 }
 
 export function formatTanggal(date) {

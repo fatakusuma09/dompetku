@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useDebts } from '@/hooks/useDebts'
-import { formatRupiah, formatTanggal } from '@/lib/utils'
+import {
+  formatRupiah,
+  formatTanggal,
+  formatNumberWithDots,
+  parseFormattedNumber,
+} from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,13 +42,14 @@ export default function DebtsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!namaOrang || !jumlah || Number(jumlah) <= 0) return
+    const numericJumlah = parseFormattedNumber(jumlah)
+    if (!namaOrang || !numericJumlah || numericJumlah <= 0) return
     setSubmitting(true)
     try {
       await addDebt({
         tipe,
         nama_orang: namaOrang,
-        jumlah,
+        jumlah: numericJumlah,
         catatan,
       })
       setNamaOrang('')
@@ -168,13 +174,13 @@ export default function DebtsPage() {
               <div>
                 <Label className="text-xs text-muted-foreground">Jumlah (Rp)</Label>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="0"
                   value={jumlah}
-                  onChange={(e) => setJumlah(e.target.value)}
+                  onChange={(e) => setJumlah(formatNumberWithDots(e.target.value))}
                   className="mt-1 font-semibold"
                   required
-                  min="1"
                 />
               </div>
 

@@ -19,6 +19,7 @@ import {
   Target,
   Settings,
   AlertTriangle,
+  Calculator,
 } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -46,6 +47,11 @@ export default function DashboardPage() {
   const budgetUsedPercent = budgetBulanan > 0
     ? Math.min(Math.round((summary.totalPengeluaran / budgetBulanan) * 100), 100)
     : 0
+
+  // Proyeksi sisa uang akhir bulan jika konsisten memakai batas harian
+  const totalRencanaKeluarSisaBulan = batasHarian * remainingDays
+  const proyeksiSisaUangAkhirBulan = summary.saldo - totalRencanaKeluarSisaBulan
+  const isDefisitAkhirBulan = proyeksiSisaUangAkhirBulan < 0
 
   const greeting = () => {
     const hour = new Date().getHours()
@@ -184,7 +190,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-3">
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-2">
               <Calendar className="h-3.5 w-3.5" />
               <span>
                 {isManualLimit
@@ -192,6 +198,36 @@ export default function DashboardPage() {
                   : `Dihitung otomatis: sisa dana dibagi ${remainingDays} hari`}
               </span>
             </div>
+
+            {/* Proyeksi Sisa Uang Akhir Bulan jika pakai batas harian */}
+            {batasHarian > 0 && (
+              <div
+                className={`p-2.5 rounded-lg border text-xs space-y-1 my-2.5 ${
+                  isDefisitAkhirBulan
+                    ? 'bg-red-50/90 border-red-200 text-red-900'
+                    : 'bg-emerald-50/90 border-emerald-200 text-emerald-900'
+                }`}
+              >
+                <div className="flex items-center justify-between font-semibold">
+                  <span className="flex items-center gap-1.5">
+                    <Calculator className="h-3.5 w-3.5" />
+                    Estimasi Sisa Akhir Bulan:
+                  </span>
+                  <span
+                    className={`text-sm font-bold ${
+                      isDefisitAkhirBulan ? 'text-red-600' : 'text-emerald-700'
+                    }`}
+                  >
+                    {formatRupiah(proyeksiSisaUangAkhirBulan)}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-normal">
+                  {isDefisitAkhirBulan
+                    ? `⚠️ Jika belanja ${formatRupiah(batasHarian)}/hari x ${remainingDays} hari lagi, uangmu akan tekor ${formatRupiah(Math.abs(proyeksiSisaUangAkhirBulan))} di akhir bulan!`
+                    : `💡 Jika disiplin belanja ${formatRupiah(batasHarian)}/hari x ${remainingDays} hari lagi, uangmu masih sisa ${formatRupiah(proyeksiSisaUangAkhirBulan)}.`}
+                </p>
+              </div>
+            )}
 
             {budgetBulanan > 0 && (
               <div className="space-y-1.5 pt-2.5 border-t">

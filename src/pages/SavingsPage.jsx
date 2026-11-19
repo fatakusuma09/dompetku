@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useSavingsGoals } from '@/hooks/useSavingsGoals'
-import { formatRupiah, formatTanggal } from '@/lib/utils'
+import {
+  formatRupiah,
+  formatTanggal,
+  formatNumberWithDots,
+  parseFormattedNumber,
+} from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,12 +49,13 @@ export default function SavingsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!namaTarget || !targetJumlah || Number(targetJumlah) <= 0) return
+    const numericTarget = parseFormattedNumber(targetJumlah)
+    if (!namaTarget || !numericTarget || numericTarget <= 0) return
     setSubmitting(true)
     try {
       await addGoal({
         nama_target: namaTarget,
-        target_jumlah: targetJumlah,
+        target_jumlah: numericTarget,
         deadline: deadline || null,
         warna,
       })
@@ -65,10 +71,11 @@ export default function SavingsPage() {
   }
 
   const handleDeposit = async (id) => {
-    if (!depositAmount || Number(depositAmount) <= 0) return
+    const numericDeposit = parseFormattedNumber(depositAmount)
+    if (!numericDeposit || numericDeposit <= 0) return
     setDepositing(true)
     try {
-      await depositSavings(id, depositAmount)
+      await depositSavings(id, numericDeposit)
       setDepositGoalId(null)
       setDepositAmount('')
     } catch (err) {
@@ -166,13 +173,13 @@ export default function SavingsPage() {
                       Rp
                     </span>
                     <Input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       placeholder="0"
                       value={targetJumlah}
-                      onChange={(e) => setTargetJumlah(e.target.value)}
+                      onChange={(e) => setTargetJumlah(formatNumberWithDots(e.target.value))}
                       className="pl-10 font-semibold"
                       required
-                      min="1"
                     />
                   </div>
                 </div>
@@ -335,13 +342,13 @@ export default function SavingsPage() {
                       </div>
                       <div className="flex flex-col sm:flex-row gap-2">
                         <Input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           placeholder="Nominal simpanan (Rp)"
                           value={depositAmount}
-                          onChange={(e) => setDepositAmount(e.target.value)}
+                          onChange={(e) => setDepositAmount(formatNumberWithDots(e.target.value))}
                           className="h-9 text-xs font-semibold flex-1"
                           autoFocus
-                          min="1"
                         />
                         <div className="flex gap-1.5 justify-end">
                           <Button
